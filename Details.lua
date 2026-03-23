@@ -84,16 +84,17 @@ function Details:_CreateRow(parent)
     row.icon:SetPoint("LEFT", row, "LEFT", 3, 0)
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality stars — star.tga en masque alpha sur quad blanc coloré via SetVertexColor
+    -- Quality stars — WHITE8X8 masquée par star.tga, superposées sur l'icône
     row.qualityStars = {}
     for i = 1, 3 do
         local s = row:CreateTexture(nil, "OVERLAY")
         s:SetSize(6, 6)
-        s:SetColorTexture(1, 1, 1, 1)
-        s:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7 - 1, -2)
+        s:SetTexture("Interface\\Buttons\\WHITE8X8")
+        s:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
         local mask = row:CreateMaskTexture()
         mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
-        mask:SetAllPoints(s)
+        mask:SetSize(6, 6)
+        mask:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
         s:AddMaskTexture(mask)
         s:Hide()
         row.qualityStars[i] = s

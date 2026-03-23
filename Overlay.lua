@@ -87,17 +87,21 @@ local function CreateItemRow(parent)
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality stars — star.tga en masque alpha sur quad blanc coloré via SetVertexColor
-    -- (SetVertexColor ne fonctionne pas sur pixels noirs : 0 × couleur = 0)
+    -- Quality stars — WHITE8X8 (base blanche) masquée par star.tga, teintée via SetVertexColor
+    -- Mask positionné explicitement (même ancre que la texture) pour garantir l'alignement.
+    -- Stars superposées sur l'icône (BOTTOMLEFT de l'icône, layer OVERLAY).
     row.qualityStars = {}
     for i = 1, 3 do
+        -- Base blanche (teintable via SetVertexColor)
         local s = row:CreateTexture(nil, "OVERLAY")
-        s:SetSize(7, 7)
-        s:SetColorTexture(1, 1, 1, 1)          -- base blanche, teintée via SetVertexColor
-        s:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 8 - 1, -3)
+        s:SetSize(6, 6)
+        s:SetTexture("Interface\\Buttons\\WHITE8X8")
+        s:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
+        -- Masque : découpe la forme de l'étoile (canal alpha du TGA)
         local mask = row:CreateMaskTexture()
         mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
-        mask:SetAllPoints(s)
+        mask:SetSize(6, 6)
+        mask:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
         s:AddMaskTexture(mask)
         s:Hide()
         row.qualityStars[i] = s
