@@ -24,15 +24,6 @@ local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
 
--- Dragonflight crafting ingredient quality tiers (1★=bronze, 2★=argent, 3★=or)
-local QUALITY_COLORS = {
-    [0] = { 0.62, 0.62, 0.62 },  -- Poor      (gris)
-    [1] = { 0.80, 0.50, 0.20 },  -- Common    = bronze (1★)
-    [2] = { 0.75, 0.75, 0.80 },  -- Uncommon  = argent (2★)
-    [3] = { 1.00, 0.82, 0.00 },  -- Rare      = or     (3★)
-    [4] = { 0.64, 0.21, 0.93 },  -- Epic      (violet)
-    [5] = { 1.00, 0.50, 0.00 },  -- Legendary (orange)
-}
 
 -------------------------------------------------------------------------------
 -- Coin formatter
@@ -87,11 +78,11 @@ local function CreateItemRow(parent)
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality border (WoW-style colored frame around the icon)
-    row.qualityBorder = row.iconBtn:CreateTexture(nil, "OVERLAY")
-    row.qualityBorder:SetAllPoints()
-    row.qualityBorder:SetTexture("Interface\\Common\\WhiteIconFrame")
-    row.qualityBorder:SetVertexColor(1, 1, 1, 0)  -- invisible by default
+    -- Quality gem (Dragonflight crafting tier icon, bottom-left of icon)
+    row.qualityGem = row:CreateTexture(nil, "OVERLAY")
+    row.qualityGem:SetSize(14, 14)
+    row.qualityGem:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", -2, -2)
+    row.qualityGem:Hide()
 
     row.iconBtn:SetScript("OnEnter", function(self)
         if row.itemID then
@@ -512,12 +503,18 @@ function Overlay:Refresh()
             -- Icon
             row.icon:SetTexture(item.icon or ICON_UNKNOWN)
 
-            -- Quality border (colored frame around icon for non-common items)
-            local qc = QUALITY_COLORS[item.quality or 1]
-            if qc then
-                row.qualityBorder:SetVertexColor(qc[1], qc[2], qc[3], 1)
+            -- Quality gem (Dragonflight crafting tier: 1★=bronze, 2★=argent, 3★=or)
+            local QUALITY_TEXTURES = {
+                [1] = "Interface\\Professions\\ProfessionQuality-Tier1-Small",
+                [2] = "Interface\\Professions\\ProfessionQuality-Tier2-Small",
+                [3] = "Interface\\Professions\\ProfessionQuality-Tier3-Small",
+            }
+            local qt = item.quality and QUALITY_TEXTURES[item.quality]
+            if qt then
+                row.qualityGem:SetTexture(qt)
+                row.qualityGem:Show()
             else
-                row.qualityBorder:SetVertexColor(1, 1, 1, 0)
+                row.qualityGem:Hide()
             end
 
             -- Name

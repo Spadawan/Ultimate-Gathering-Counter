@@ -211,7 +211,7 @@ function DB:CacheItem(itemID, name, icon, quality)
     UGC_DB.itemCache[tostring(itemID)] = {
         name     = name,
         icon     = icon,
-        quality  = quality or 1,
+        quality  = quality,  -- nil if not yet loaded; shown only when known
         cachedAt = GetServerTime(),
     }
 end

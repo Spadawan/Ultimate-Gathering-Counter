@@ -239,7 +239,7 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
                 local cached  = UGC.DB:GetCachedItem(itemID)
                 local name    = (cached and cached.name) or data.hint or ("Item " .. itemID)
                 local icon    = cached and cached.icon
-                local quality = cached and cached.quality or 1
+                local quality = cached and cached.quality  -- nil = unknown, no gem shown
 
                 table.insert(result, {
                     itemID        = itemID,
