@@ -23,6 +23,7 @@ local PADDING        = 6
 local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
+local ICON_ADDON   = "Interface\\Icons\\Ability_Tracking"  -- icône addon (tracking, dispo Classic+Retail)
 
 
 -------------------------------------------------------------------------------
@@ -78,11 +79,11 @@ local function CreateItemRow(parent)
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality gem (Dragonflight crafting tier icon, bottom-left of icon)
-    row.qualityGem = row:CreateTexture(nil, "OVERLAY")
-    row.qualityGem:SetSize(14, 14)
-    row.qualityGem:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", -2, -2)
-    row.qualityGem:Hide()
+    -- Quality stars (1★ bronze, 2★ argent, 3★ or) — FontString, fiable sans dépendance texture
+    row.qualityGem = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.qualityGem:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", -1, -3)
+    row.qualityGem:SetFont("Fonts\\FRIZQT__.TTF", 8, "OUTLINE")
+    row.qualityGem:SetText("")
 
     row.iconBtn:SetScript("OnEnter", function(self)
         if row.itemID then
@@ -230,6 +231,14 @@ function Overlay:Init()
     titleText:SetPoint("LEFT", titleBar, "LEFT", 6, 0)
     titleText:SetText("|cff33E633UGC|r  Ultimate Gathering Counter")
 
+    -- Icône addon (visible uniquement en mode minimisé)
+    local addonIcon = titleBar:CreateTexture(nil, "OVERLAY")
+    addonIcon:SetSize(14, 14)
+    addonIcon:SetPoint("LEFT", titleBar, "LEFT", 4, 0)
+    addonIcon:SetTexture(ICON_ADDON)
+    addonIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    addonIcon:Hide()
+
     -- ── Header buttons ────────────────────────────────────────────────
     -- Close
     local closeBtn = CreateFrame("Button", nil, f)
@@ -276,10 +285,24 @@ function Overlay:Init()
     end)
     configBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    -- Réduire / Restaurer
+    local minimizeBtn = CreateFrame("Button", nil, f)
+    minimizeBtn:SetSize(16, 16)
+    minimizeBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up")
+    minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Down")
+    minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up", "ADD")
+    minimizeBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+        GameTooltip:SetText("Réduire l'overlay")
+        GameTooltip:Show()
+    end)
+    minimizeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     -- Reset session
     local resetBtn = CreateFrame("Button", nil, f)
     resetBtn:SetSize(16, 16)
-    resetBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    resetBtn:SetPoint("RIGHT", minimizeBtn, "LEFT", -4, 0)
     resetBtn:SetNormalTexture("Interface\\TimeManager\\ResetButton")
     resetBtn:SetHighlightTexture("Interface\\TimeManager\\ResetButton", "ADD")
     resetBtn:SetScript("OnClick", function()
@@ -353,8 +376,50 @@ function Overlay:Init()
     self.rows        = {}
     self.headers     = {}
 
+    -- ── Mode minimisé ─────────────────────────────────────────────────
+    local function ApplyMinimized(minimized)
+        UGC.DB:GetSettings().overlayMinimized = minimized
+        if minimized then
+            colHdr:Hide()
+            scrollFrame:Hide()
+            totalBar:Hide()
+            titleText:SetText("|cff33E633UGC|r")
+            addonIcon:Show()
+            f:SetHeight(32)
+            minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Up")
+            minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Down")
+            minimizeBtn:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+                GameTooltip:SetText("Restaurer l'overlay")
+                GameTooltip:Show()
+            end)
+        else
+            colHdr:Show()
+            scrollFrame:Show()
+            totalBar:Show()
+            titleText:SetText("|cff33E633UGC|r  Ultimate Gathering Counter")
+            addonIcon:Hide()
+            minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up")
+            minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Down")
+            minimizeBtn:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+                GameTooltip:SetText("Réduire l'overlay")
+                GameTooltip:Show()
+            end)
+            Overlay:Refresh()
+        end
+    end
+
+    minimizeBtn:SetScript("OnClick", function()
+        ApplyMinimized(not UGC.DB:GetSettings().overlayMinimized)
+    end)
+
     if not settings.overlayVisible then
         f:Hide()
+    end
+
+    if settings.overlayMinimized then
+        ApplyMinimized(true)
     end
 
     -- Fade to 50% opacity when mouse is not over the overlay (checked at ~10 Hz)
@@ -366,7 +431,7 @@ function Overlay:Init()
         local s = UGC.DB:GetSettings()
         local base = s.overlayAlpha or 1.0
         if s.fadeWhenUnfocused then
-            self:SetAlpha((self:IsMouseOver() or GameTooltip:IsShown()) and base or base * 0.5)
+            self:SetAlpha(self:IsMouseOver() and base or base * 0.5)
         else
             self:SetAlpha(base)
         end
@@ -503,19 +568,13 @@ function Overlay:Refresh()
             -- Icon
             row.icon:SetTexture(item.icon or ICON_UNKNOWN)
 
-            -- Quality gem (Dragonflight crafting tier: 1★=bronze, 2★=argent, 3★=or)
-            local QUALITY_TEXTURES = {
-                [1] = "Interface\\Professions\\ProfessionQuality-Tier1-Small",
-                [2] = "Interface\\Professions\\ProfessionQuality-Tier2-Small",
-                [3] = "Interface\\Professions\\ProfessionQuality-Tier3-Small",
+            -- Quality stars (1★ bronze, 2★ argent, 3★ or)
+            local QUALITY_STARS = {
+                [1] = "|cffcc8832★|r",
+                [2] = "|cffc0c0c0★★|r",
+                [3] = "|ffffd700★★★|r",
             }
-            local qt = item.quality and QUALITY_TEXTURES[item.quality]
-            if qt then
-                row.qualityGem:SetTexture(qt)
-                row.qualityGem:Show()
-            else
-                row.qualityGem:Hide()
-            end
+            row.qualityGem:SetText(item.quality and QUALITY_STARS[item.quality] or "")
 
             -- Name
             row.nameText:SetText(item.name)
