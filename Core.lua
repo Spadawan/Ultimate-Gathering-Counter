@@ -41,7 +41,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- Re-baseline bags after loading screens/reloads so existing bag contents
         -- are not miscounted as newly gathered items.
         if UGC.Tracker and UGC.Session and UGC.Session.startTime > 0 then
-            UGC.Tracker:RebaselineBags()
+            local isInitialLogin = arg1
+            local isReloadingUi  = ...
+            UGC.Tracker:RebaselineBags(not (isInitialLogin or isReloadingUi))
             if UGC.Overlay and UGC.Overlay.frame then
                 UGC.Overlay:Refresh()
             end

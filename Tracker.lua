@@ -86,7 +86,7 @@ function Tracker:_buildSnapshot()
     UGC.Session.bagSnapshot = snapshot
 end
 
-function Tracker:RebaselineBags()
+function Tracker:RebaselineBags(keepFirstScanState)
     local snapshot = self:_captureSnapshot()
 
     for itemID, count in pairs(snapshot) do
@@ -103,7 +103,10 @@ function Tracker:RebaselineBags()
     end
 
     UGC.Session.bagSnapshot = snapshot
-    _firstScanDone = true
+    -- During initial login / UI reload, item data can still be streaming in.
+    -- Allow one more BAG_UPDATE_DELAYED pass to re-seed the snapshot without
+    -- recording gains so existing bag contents are never added to session/all-time.
+    _firstScanDone = keepFirstScanState and true or false
 end
 
 -------------------------------------------------------------------------------
