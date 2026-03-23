@@ -1,0 +1,15 @@
+## Interface: 120001
+## Title: |cff33E633Ultimate Gathering Counter|r
+## Notes: Tracks gathered herbs, ores, fish, and leather with per-hour rates and Auctionator price integration.
+## Author: UGC
+## Version: 1.0.0
+## SavedVariables: UGC_DB
+## OptionalDeps: Auctionator
+
+Data.lua
+Database.lua
+Tracker.lua
+Overlay.lua
+Details.lua
+Config.lua
+Core.lua
