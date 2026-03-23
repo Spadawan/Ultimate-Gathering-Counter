@@ -82,7 +82,7 @@ local function CreateItemRow(parent)
     -- Quality stars (1★ bronze, 2★ argent, 3★ or) — FontString, fiable sans dépendance texture
     row.qualityGem = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.qualityGem:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", -1, -3)
-    row.qualityGem:SetFont("Fonts\\FRIZQT__.TTF", 8, "OUTLINE")
+    row.qualityGem:SetFont("Fonts\\ARIALN.TTF", 9, "OUTLINE")
     row.qualityGem:SetText("")
 
     row.iconBtn:SetScript("OnEnter", function(self)
