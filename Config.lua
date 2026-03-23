@@ -292,7 +292,7 @@ function Config:Init()
     local chatHint = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     chatHint:SetPoint("TOPLEFT", f, "TOPLEFT", 36, yOff + 4)
     chatHint:SetWidth(WIN_WIDTH - 46)
-    chatHint:SetText("When enabled, detects new item types from loot messages.\nCounting is always done via bag scanning to avoid duplicates.")
+    chatHint:SetText("When enabled, detects new item types from loot messages.\nCounting now requires a loot message and a matching bag update to avoid false positives on login.")
     chatHint:SetJustifyH("LEFT")
     chatHint:SetTextColor(0.45, 0.45, 0.45)
     yOff = yOff - 28
