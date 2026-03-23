@@ -23,6 +23,16 @@ local PADDING        = 6
 local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
+local ICON_ADDON   = "Interface\\Icons\\Ability_Tracking"  -- icône addon (tracking, dispo Classic+Retail)
+
+-- Quality star texture (black TGA, colored via SetVertexColor)
+local STAR_TEX = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star.tga"
+local QUALITY_COLORS = {
+    [1] = { 0.80, 0.54, 0.20 },  -- bronze
+    [2] = { 0.75, 0.75, 0.75 },  -- argent
+    [3] = { 1.00, 0.85, 0.00 },  -- or
+}
+
 
 -------------------------------------------------------------------------------
 -- Coin formatter
@@ -76,6 +86,27 @@ local function CreateItemRow(parent)
     row.icon = row.iconBtn:CreateTexture(nil, "ARTWORK")
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    -- Quality stars — WHITE8X8 (base blanche) masquée par star.tga, teintée via SetVertexColor
+    -- Mask positionné explicitement (même ancre que la texture) pour garantir l'alignement.
+    -- Stars superposées sur l'icône (BOTTOMLEFT de l'icône, layer OVERLAY).
+    row.qualityStars = {}
+    for i = 1, 3 do
+        -- Base blanche (teintable via SetVertexColor)
+        local s = row:CreateTexture(nil, "OVERLAY")
+        s:SetSize(6, 6)
+        s:SetTexture("Interface\\Buttons\\WHITE8X8")
+        s:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
+        -- Masque : découpe la forme de l'étoile (canal alpha du TGA)
+        local mask = row:CreateMaskTexture()
+        mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
+        mask:SetSize(6, 6)
+        mask:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
+        s:AddMaskTexture(mask)
+        s:Hide()
+        row.qualityStars[i] = s
+    end
+
     row.iconBtn:SetScript("OnEnter", function(self)
         if row.itemID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -117,8 +148,9 @@ end
 -- Section header (one per category group)
 local function CreateSectionHeader(parent, cat)
     local catData = UGC.CATEGORIES[cat]
-    local hdr = CreateFrame("Frame", nil, parent)
+    local hdr = CreateFrame("Button", nil, parent)
     hdr:SetHeight(HDR_HEIGHT)
+    hdr:RegisterForClicks("LeftButtonUp")
 
     hdr.bg = hdr:CreateTexture(nil, "BACKGROUND")
     hdr.bg:SetAllPoints()
@@ -128,13 +160,40 @@ local function CreateSectionHeader(parent, cat)
         catData.color.b * 0.25,
         0.7)
 
+    -- Collapse/expand arrow indicator
+    hdr.arrow = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    hdr.arrow:SetPoint("LEFT", hdr, "LEFT", 6, 0)
+    hdr.arrow:SetTextColor(0.8, 0.8, 0.8)
+    hdr.arrow:SetText("-")
+
     hdr.label = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hdr.label:SetPoint("LEFT", hdr, "LEFT", 8, 0)
+    hdr.label:SetPoint("LEFT", hdr, "LEFT", 20, 0)
     hdr.label:SetTextColor(catData.color.r, catData.color.g, catData.color.b)
 
     hdr.count = hdr:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     hdr.count:SetPoint("RIGHT", hdr, "RIGHT", -8, 0)
     hdr.count:SetTextColor(0.75, 0.75, 0.75)
+
+    -- Hover highlight
+    hdr:SetScript("OnEnter", function(self)
+        self.bg:SetColorTexture(
+            catData.color.r * 0.4,
+            catData.color.g * 0.4,
+            catData.color.b * 0.4, 0.85)
+    end)
+    hdr:SetScript("OnLeave", function(self)
+        self.bg:SetColorTexture(
+            catData.color.r * 0.25,
+            catData.color.g * 0.25,
+            catData.color.b * 0.25, 0.7)
+    end)
+
+    -- Click toggles collapse state and refreshes
+    hdr:SetScript("OnClick", function(self)
+        local s = UGC.DB:GetSettings()
+        s.collapsedCategories[self._cat] = not s.collapsedCategories[self._cat]
+        Overlay:Refresh()
+    end)
 
     return hdr
 end
@@ -148,7 +207,7 @@ function Overlay:Init()
     local f = CreateFrame("Frame", "UGC_Overlay", UIParent, "BackdropTemplate")
     f:SetFrameStrata("MEDIUM")
     f:SetFrameLevel(10)
-    f:SetSize(OVERLAY_WIDTH, OVERLAY_HEIGHT)
+    f:SetSize(OVERLAY_WIDTH, settings.overlayHeight or OVERLAY_HEIGHT)
     f:SetBackdrop({
         bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -157,6 +216,7 @@ function Overlay:Init()
     })
     f:SetBackdropColor(0.08, 0.08, 0.08, 0.88)
     f:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+    f:SetAlpha(settings.overlayAlpha or 1.0)
     f:SetClampedToScreen(true)
 
     -- Restore saved position
@@ -179,6 +239,22 @@ function Overlay:Init()
         Overlay:SavePosition()
     end)
 
+    -- Resize handle (bottom-right corner)
+    f:SetResizable(true)
+    f:SetResizeBounds(OVERLAY_WIDTH, MIN_HEIGHT)
+    local resizeGrip = CreateFrame("Button", nil, f)
+    resizeGrip:SetSize(16, 16)
+    resizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+    resizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    resizeGrip:SetScript("OnMouseDown", function(_, btn)
+        if btn == "LeftButton" then f:StartSizing("BOTTOMRIGHT") end
+    end)
+    resizeGrip:SetScript("OnMouseUp", function()
+        f:StopMovingOrSizing()
+        UGC.DB:GetSettings().overlayHeight = math.floor(f:GetHeight())
+    end)
+
     -- ── Title bar ────────────────────────────────────────────────────
     local titleBar = CreateFrame("Frame", nil, f)
     titleBar:SetPoint("TOPLEFT",  f, "TOPLEFT",  6, -6)
@@ -192,6 +268,14 @@ function Overlay:Init()
     local titleText = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     titleText:SetPoint("LEFT", titleBar, "LEFT", 6, 0)
     titleText:SetText("|cff33E633UGC|r  Ultimate Gathering Counter")
+
+    -- Icône addon (visible uniquement en mode minimisé)
+    local addonIcon = titleBar:CreateTexture(nil, "OVERLAY")
+    addonIcon:SetSize(14, 14)
+    addonIcon:SetPoint("LEFT", titleBar, "LEFT", 4, 0)
+    addonIcon:SetTexture(ICON_ADDON)
+    addonIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    addonIcon:Hide()
 
     -- ── Header buttons ────────────────────────────────────────────────
     -- Close
@@ -238,6 +322,37 @@ function Overlay:Init()
         GameTooltip:Show()
     end)
     configBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- Réduire / Restaurer
+    local minimizeBtn = CreateFrame("Button", nil, f)
+    minimizeBtn:SetSize(16, 16)
+    minimizeBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up")
+    minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Down")
+    minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up", "ADD")
+    minimizeBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+        GameTooltip:SetText("Réduire l'overlay")
+        GameTooltip:Show()
+    end)
+    minimizeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- Reset session
+    local resetBtn = CreateFrame("Button", nil, f)
+    resetBtn:SetSize(16, 16)
+    resetBtn:SetPoint("RIGHT", minimizeBtn, "LEFT", -4, 0)
+    resetBtn:SetNormalTexture("Interface\\TimeManager\\ResetButton")
+    resetBtn:SetHighlightTexture("Interface\\TimeManager\\ResetButton", "ADD")
+    resetBtn:SetScript("OnClick", function()
+        UGC.Tracker:ResetSession()
+        Overlay:Refresh()
+    end)
+    resetBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+        GameTooltip:SetText("Reset session\n|cff888888/ugc reset|r")
+        GameTooltip:Show()
+    end)
+    resetBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     -- ── Column header row ─────────────────────────────────────────────
     local colHdr = CreateFrame("Frame", nil, f)
@@ -299,9 +414,74 @@ function Overlay:Init()
     self.rows        = {}
     self.headers     = {}
 
+    -- ── Mode minimisé ─────────────────────────────────────────────────
+    local function ApplyMinimized(minimized)
+        UGC.DB:GetSettings().overlayMinimized = minimized
+        if minimized then
+            colHdr:Hide()
+            scrollFrame:Hide()
+            totalBar:Hide()
+            titleText:SetText("|cff33E633UGC|r")
+            addonIcon:Show()
+            f:SetHeight(32)
+            minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Up")
+            minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Down")
+            minimizeBtn:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+                GameTooltip:SetText("Restaurer l'overlay")
+                GameTooltip:Show()
+            end)
+        else
+            colHdr:Show()
+            scrollFrame:Show()
+            totalBar:Show()
+            titleText:SetText("|cff33E633UGC|r  Ultimate Gathering Counter")
+            addonIcon:Hide()
+            f:SetHeight(UGC.DB:GetSettings().overlayHeight or OVERLAY_HEIGHT)
+            minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up")
+            minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Down")
+            minimizeBtn:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+                GameTooltip:SetText("Réduire l'overlay")
+                GameTooltip:Show()
+            end)
+            Overlay:Refresh()
+        end
+    end
+
+    minimizeBtn:SetScript("OnClick", function()
+        ApplyMinimized(not UGC.DB:GetSettings().overlayMinimized)
+    end)
+
     if not settings.overlayVisible then
         f:Hide()
     end
+
+    if settings.overlayMinimized then
+        ApplyMinimized(true)
+    end
+
+    -- Fade to 50% opacity when mouse is not over the overlay (checked at ~10 Hz)
+    local _fadeTimer = 0
+    f:SetScript("OnUpdate", function(self, elapsed)
+        _fadeTimer = _fadeTimer + elapsed
+        if _fadeTimer < 0.1 then return end
+        _fadeTimer = 0
+        local s = UGC.DB:GetSettings()
+        local base = s.overlayAlpha or 1.0
+        if s.fadeWhenUnfocused then
+            self:SetAlpha(self:IsMouseOver() and base or base * 0.5)
+        else
+            self:SetAlpha(base)
+        end
+    end)
+
+    -- Refresh per-hour rates every 30 s regardless of bag events
+    C_Timer.NewTicker(30, function()
+        if Overlay.frame and Overlay.frame:IsShown() then
+            Overlay:Refresh()
+        end
+    end)
 
     self:Refresh()
 end
@@ -386,7 +566,11 @@ function Overlay:Refresh()
                 self.headers[hdrIdx] = hdr
             end
 
-            local catData = UGC.CATEGORIES[currentCat]
+            hdr._cat = currentCat  -- used by the OnClick handler
+
+            local catData   = UGC.CATEGORIES[currentCat]
+            local collapsed = settings.collapsedCategories[currentCat]
+            hdr.arrow:SetText(collapsed and "+" or "-")
             hdr.label:SetText(catData.label:upper())
             hdr.label:SetTextColor(catData.color.r, catData.color.g, catData.color.b)
             hdr.bg:SetColorTexture(
@@ -400,70 +584,84 @@ function Overlay:Refresh()
             yOffset = yOffset + HDR_HEIGHT + 1
         end
 
-        -- ── Item row ───────────────────────────────────────────────
-        rowIdx = rowIdx + 1
-        local row = self.rows[rowIdx]
-        if not row then
-            row = CreateItemRow(self.content)
-            self.rows[rowIdx] = row
-        end
-
-        row.itemID = item.itemID
-        row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
-        row:SetWidth(self.content:GetWidth())
-
-        -- Alternating row background
-        if rowNum % 2 == 0 then
-            row.bg:SetColorTexture(1, 1, 1, 0.04)
-        else
-            row.bg:SetColorTexture(0, 0, 0, 0)
-        end
-
-        -- Icon
-        row.icon:SetTexture(item.icon or ICON_UNKNOWN)
-
-        -- Name
-        row.nameText:SetText(item.name)
-        row.nameText:SetTextColor(1, 1, 1)
-
-        -- Bag + session gain
-        if item.sessionGained > 0 then
-            row.bagText:SetText(string.format(
-                "|cff00dd00+%d|r |cff888888(%d)|r",
-                item.sessionGained, item.bagCount))
-        elseif item.bagCount > 0 then
-            row.bagText:SetText(tostring(item.bagCount))
-        else
-            row.bagText:SetText("|cff555555—|r")
-        end
-
-        -- Per-hour rate
-        if settings.showPerHourRates and item.hourlyRate >= 0.5 then
-            row.rateText:SetText(string.format("%.0f/h", item.hourlyRate))
-            row.rateText:Show()
-        else
-            row.rateText:SetText("")
-        end
-
-        -- Value (price × bag count)
-        if settings.showValues then
-            local unitPrice = GetAuctionPrice(item.itemID)
-            if unitPrice and unitPrice > 0 and item.bagCount > 0 then
-                local itemCopper = unitPrice * item.bagCount
-                totalCopper = totalCopper + itemCopper
-                row.valueText:SetText(FormatCoin(itemCopper))
-            elseif unitPrice and unitPrice > 0 then
-                row.valueText:SetText("|cff555555—|r")
-            else
-                row.valueText:SetText("|cffff8800?|r")
-                hasUnknown = true
+        -- ── Item row (skipped if category is collapsed) ────────────
+        if not settings.collapsedCategories[item.category] then
+            rowIdx = rowIdx + 1
+            local row = self.rows[rowIdx]
+            if not row then
+                row = CreateItemRow(self.content)
+                self.rows[rowIdx] = row
             end
-        else
-            row.valueText:SetText("")
-        end
 
-        row:Show()
-        yOffset = yOffset + ROW_HEIGHT + 1
+            row.itemID = item.itemID
+            row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
+            row:SetWidth(self.content:GetWidth())
+
+            -- Alternating row background
+            if rowNum % 2 == 0 then
+                row.bg:SetColorTexture(1, 1, 1, 0.04)
+            else
+                row.bg:SetColorTexture(0, 0, 0, 0)
+            end
+
+            -- Icon
+            row.icon:SetTexture(item.icon or ICON_UNKNOWN)
+
+            -- Quality stars via star.tga textures
+            local q   = item.quality
+            local col = q and QUALITY_COLORS[q]
+            for i = 1, 3 do
+                if col and i <= q then
+                    row.qualityStars[i]:SetVertexColor(col[1], col[2], col[3])
+                    row.qualityStars[i]:Show()
+                else
+                    row.qualityStars[i]:Hide()
+                end
+            end
+
+            -- Name
+            row.nameText:SetText(item.name)
+            row.nameText:SetTextColor(1, 1, 1)
+
+            -- Bag + session gain
+            if item.sessionGained > 0 then
+                row.bagText:SetText(string.format(
+                    "|cff00dd00+%d|r |cff888888(%d)|r",
+                    item.sessionGained, item.bagCount))
+            elseif item.bagCount > 0 then
+                row.bagText:SetText(tostring(item.bagCount))
+            else
+                row.bagText:SetText("|cff555555—|r")
+            end
+
+            -- Per-hour rate
+            if settings.showPerHourRates and item.hourlyRate >= 0.5 then
+                row.rateText:SetText(string.format("%.0f/h", item.hourlyRate))
+                row.rateText:Show()
+            else
+                row.rateText:SetText("")
+            end
+
+            -- Value (price × bag count)
+            if settings.showValues then
+                local unitPrice = GetAuctionPrice(item.itemID)
+                if unitPrice and unitPrice > 0 and item.bagCount > 0 then
+                    local itemCopper = unitPrice * item.bagCount
+                    totalCopper = totalCopper + itemCopper
+                    row.valueText:SetText(FormatCoin(itemCopper))
+                elseif unitPrice and unitPrice > 0 then
+                    row.valueText:SetText("|cff555555—|r")
+                else
+                    row.valueText:SetText("|cffff8800?|r")
+                    hasUnknown = true
+                end
+            else
+                row.valueText:SetText("")
+            end
+
+            row:Show()
+            yOffset = yOffset + ROW_HEIGHT + 1
+        end
     end
 
     -- ── Empty state ────────────────────────────────────────────────
@@ -481,11 +679,8 @@ function Overlay:Refresh()
         self._emptyText:Hide()
     end
 
-    -- ── Resize frame to fit content ────────────────────────────────
+    -- Update content height so the scroll frame knows the total scrollable area
     self.content:SetHeight(math.max(yOffset, 20))
-    local newH = math.max(MIN_HEIGHT,
-                 math.min(MAX_HEIGHT, yOffset + 44 + 34))
-    self.frame:SetHeight(newH)
 
     -- ── Total value bar ────────────────────────────────────────────
     if rowIdx > 0 then

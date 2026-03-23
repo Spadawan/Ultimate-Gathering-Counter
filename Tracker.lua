@@ -9,22 +9,34 @@ local UGC = _G.UGC
 UGC.Tracker = {}
 local Tracker = UGC.Tracker
 
+-- Guard: prevents ScanBags from running before Init() completes
+local _initialized = false
+-- Suppresses gain recording on the very first scan after login.
+-- On first BAG_UPDATE_DELAYED, GetItemInfo() may not have returned data for
+-- all bag items during _buildSnapshot(), so the first scan re-seeds the
+-- snapshot without counting anything as gained (avoids "+500 Hochenblume" on login).
+local _firstScanDone = false
+
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
-    startTime   = 0,
-    items       = {},        -- [itemID] = { gained = N, bagCount = N }
-    bagSnapshot = {},        -- [itemID] = count (result of last bag scan)
+    startTime    = 0,
+    items        = {},        -- [itemID] = { gained = N, bagCount = N }
+    bagSnapshot  = {},        -- [itemID] = count (result of last bag scan)
+    gatherCount  = { herbs = 0, ore = 0, fish = 0, leather = 0 }, -- gathering actions this session
 }
 
 -------------------------------------------------------------------------------
 -- Init
 -------------------------------------------------------------------------------
 function Tracker:Init()
+    _initialized  = false  -- block ScanBags during snapshot
+    _firstScanDone = false -- next ScanBags call will re-seed, not record gains
     UGC.Session.startTime = GetTime()
     wipe(UGC.Session.items)
     wipe(UGC.Session.bagSnapshot)
     -- Build initial snapshot without recording gains
     self:_buildSnapshot()
+    _initialized = true  -- safe to process bag events from now on
 end
 
 -- Build bag snapshot without delta processing (used on first load)
@@ -94,6 +106,7 @@ end
 -- ScanBags — called on BAG_UPDATE_DELAYED
 -------------------------------------------------------------------------------
 function Tracker:ScanBags()
+    if not _initialized then return end  -- ignore pre-login BAG_UPDATE_DELAYED events
     local settings    = UGC.DB:GetSettings()
     local newSnapshot = {}
 
@@ -127,8 +140,24 @@ function Tracker:ScanBags()
         end
     end
 
+    -- First scan after login: re-seed snapshot without recording gains.
+    -- _buildSnapshot() may have missed items whose GetItemInfo() wasn't ready yet;
+    -- this second pass catches them before any delta logic runs.
+    if not _firstScanDone then
+        _firstScanDone = true
+        for itemID in pairs(UGC.ITEM_DB) do
+            if not UGC.Session.items[itemID] then
+                UGC.Session.items[itemID] = { gained = 0, bagCount = 0 }
+            end
+            UGC.Session.items[itemID].bagCount = newSnapshot[itemID] or 0
+        end
+        UGC.Session.bagSnapshot = newSnapshot
+        return
+    end
+
     -- Compute deltas against previous snapshot
     local oldSnapshot = UGC.Session.bagSnapshot
+    local gainedCats  = {}  -- categories with positive delta this scan
     for itemID, newCount in pairs(newSnapshot) do
         local oldCount = oldSnapshot[itemID] or 0
         local delta    = newCount - oldCount
@@ -139,7 +168,15 @@ function Tracker:ScanBags()
             end
             UGC.Session.items[itemID].gained = UGC.Session.items[itemID].gained + delta
             UGC.DB:RecordGain(itemID, delta)
+            -- Track which category had a gain
+            local cat = UGC.ITEM_DB[itemID] and UGC.ITEM_DB[itemID].category
+            if cat then gainedCats[cat] = true end
         end
+    end
+    -- One gathering action per category with gains in this scan
+    for cat in pairs(gainedCats) do
+        UGC.DB:RecordGatherAction(cat)
+        UGC.Session.gatherCount[cat] = (UGC.Session.gatherCount[cat] or 0) + 1
     end
 
     -- Update all tracked items' bag counts
@@ -228,20 +265,22 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
             local bagCount  = sess.bagCount
             local gained    = sess.gained
 
-            -- Show item if it has been seen this session OR has enough in bag
-            if gained > 0 or bagCount >= minQty then
-                local cached = UGC.DB:GetCachedItem(itemID)
-                local name   = (cached and cached.name) or data.hint or ("Item " .. itemID)
-                local icon   = cached and cached.icon
+            -- Only show items currently in the bag; must also meet quantity threshold
+            if bagCount > 0 and (gained > 0 or bagCount >= minQty) then
+                local cached  = UGC.DB:GetCachedItem(itemID)
+                local name    = (cached and cached.name) or data.hint or ("Item " .. itemID)
+                local icon    = cached and cached.icon
+                local quality = cached and cached.quality  -- nil = unknown, no gem shown
 
                 table.insert(result, {
-                    itemID       = itemID,
-                    name         = name,
-                    icon         = icon,
-                    category     = cat,
-                    bagCount     = bagCount,
+                    itemID        = itemID,
+                    name          = name,
+                    icon          = icon,
+                    quality       = quality,
+                    category      = cat,
+                    bagCount      = bagCount,
                     sessionGained = gained,
-                    hourlyRate   = self:GetHourlyRate(itemID),
+                    hourlyRate    = self:GetHourlyRate(itemID),
                 })
             end
         end
@@ -317,6 +356,7 @@ end
 -------------------------------------------------------------------------------
 function Tracker:ResetSession()
     UGC.DB:ResetSession()
+    wipe(UGC.Session.gatherCount)
     self:_buildSnapshot()
 end
 

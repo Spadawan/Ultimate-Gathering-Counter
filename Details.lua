@@ -13,6 +13,14 @@ local WINDOW_WIDTH  = 530
 local WINDOW_HEIGHT = 480
 local ROW_HEIGHT    = 22
 
+-- Quality star texture (same as overlay)
+local STAR_TEX = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star.tga"
+local QUALITY_COLORS = {
+    [1] = { 0.80, 0.54, 0.20 },
+    [2] = { 0.75, 0.75, 0.75 },
+    [3] = { 1.00, 0.85, 0.00 },
+}
+
 -- Tab definitions
 local TABS = {
     { key = "allTime",  label = "All Time"  },
@@ -75,6 +83,22 @@ function Details:_CreateRow(parent)
     row.icon:SetSize(ROW_HEIGHT - 2, ROW_HEIGHT - 2)
     row.icon:SetPoint("LEFT", row, "LEFT", 3, 0)
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    -- Quality stars — WHITE8X8 masquée par star.tga, superposées sur l'icône
+    row.qualityStars = {}
+    for i = 1, 3 do
+        local s = row:CreateTexture(nil, "OVERLAY")
+        s:SetSize(6, 6)
+        s:SetTexture("Interface\\Buttons\\WHITE8X8")
+        s:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
+        local mask = row:CreateMaskTexture()
+        mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
+        mask:SetSize(6, 6)
+        mask:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
+        s:AddMaskTexture(mask)
+        s:Hide()
+        row.qualityStars[i] = s
+    end
 
     row.nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     row.nameText:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
@@ -276,8 +300,9 @@ end
 -- Init — called on PLAYER_LOGIN
 -------------------------------------------------------------------------------
 function Details:Init()
+    local settings = UGC.DB:GetSettings()
     local f = CreateFrame("Frame", "UGC_Details", UIParent, "BackdropTemplate")
-    f:SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+    f:SetSize(settings.detailsWidth or WINDOW_WIDTH, settings.detailsHeight or WINDOW_HEIGHT)
     f:SetFrameStrata("HIGH")
     f:SetFrameLevel(20)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 30)
@@ -296,6 +321,24 @@ function Details:Init()
     f:SetScript("OnDragStop",  function(self) self:StopMovingOrSizing() end)
     f:SetClampedToScreen(true)
     tinsert(UISpecialFrames, "UGC_Details")
+
+    -- Resize handle
+    f:SetResizable(true)
+    f:SetResizeBounds(400, 280)
+    local resizeGrip = CreateFrame("Button", nil, f)
+    resizeGrip:SetSize(16, 16)
+    resizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+    resizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    resizeGrip:SetScript("OnMouseDown", function(_, btn)
+        if btn == "LeftButton" then f:StartSizing("BOTTOMRIGHT") end
+    end)
+    resizeGrip:SetScript("OnMouseUp", function()
+        f:StopMovingOrSizing()
+        local s = UGC.DB:GetSettings()
+        s.detailsWidth  = math.floor(f:GetWidth())
+        s.detailsHeight = math.floor(f:GetHeight())
+    end)
 
     -- Title
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -405,50 +448,52 @@ function Details:Init()
     local scrollFrame = CreateFrame("ScrollFrame", "UGC_DetailsScroll", f,
                                     "UIPanelScrollFrameTemplate")
     scrollFrame:SetPoint("TOPLEFT",     f, "TOPLEFT",    6, -98)
-    scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 80)
+    scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 96)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
     content:SetWidth(WINDOW_WIDTH - 34)
     content:SetHeight(20)
     scrollFrame:SetScrollChild(content)
 
-    -- ── Summary bar ───────────────────────────────────────────────────
+    -- ── Summary bar (2 lines) ─────────────────────────────────────────
     local summaryBar = CreateFrame("Frame", nil, f)
     summaryBar:SetPoint("BOTTOMLEFT",  f, "BOTTOMLEFT",   6, 40)
     summaryBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT",  -6, 40)
-    summaryBar:SetHeight(36)
+    summaryBar:SetHeight(52)
 
     local sumBg = summaryBar:CreateTexture(nil, "BACKGROUND")
     sumBg:SetAllPoints()
     sumBg:SetColorTexture(0.05, 0.05, 0.05, 0.9)
 
-    self._summaryText = summaryBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    self._summaryText:SetPoint("LEFT",  summaryBar, "LEFT",  8, 0)
-    self._summaryText:SetPoint("RIGHT", summaryBar, "RIGHT", -8, 0)
-    self._summaryText:SetJustifyH("LEFT")
-    self._summaryText:SetJustifyV("MIDDLE")
-    self._summaryText:SetTextColor(0.85, 0.85, 0.85)
+    self._summaryLine1 = summaryBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self._summaryLine1:SetPoint("TOPLEFT",  summaryBar, "TOPLEFT",  8, -6)
+    self._summaryLine1:SetPoint("TOPRIGHT", summaryBar, "TOPRIGHT", -8, -6)
+    self._summaryLine1:SetJustifyH("LEFT")
+    self._summaryLine1:SetTextColor(0.85, 0.85, 0.85)
+
+    self._summaryLine2 = summaryBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self._summaryLine2:SetPoint("BOTTOMLEFT",  summaryBar, "BOTTOMLEFT",  8, 6)
+    self._summaryLine2:SetPoint("BOTTOMRIGHT", summaryBar, "BOTTOMRIGHT", -8, 6)
+    self._summaryLine2:SetJustifyH("LEFT")
+    self._summaryLine2:SetTextColor(0.75, 0.75, 0.75)
 
     -- ── Bottom buttons ────────────────────────────────────────────────
-    local function MakeBottomBtn(label, xOff, onClick)
-        local btn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        btn:SetSize(130, 24)
-        btn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", xOff, 10)
-        btn:SetText(label)
-        btn:SetScript("OnClick", onClick)
-        return btn
-    end
-
-    MakeBottomBtn("Reset Session", 8, function()
+    local resetBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    resetBtn:SetSize(130, 24)
+    resetBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, 10)
+    resetBtn:SetText("Reset Session")
+    resetBtn:SetScript("OnClick", function()
         UGC.Tracker:ResetSession()
         if UGC.Overlay then UGC.Overlay:Refresh() end
         Details:Refresh()
         print("|cff33E633UGC:|r Session data reset.")
     end)
 
-    MakeBottomBtn("Close", WINDOW_WIDTH - 140, function()
-        Details:Hide()
-    end)
+    local closeBtn2 = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    closeBtn2:SetSize(130, 24)
+    closeBtn2:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 10)
+    closeBtn2:SetText("Close")
+    closeBtn2:SetScript("OnClick", function() Details:Hide() end)
 
     -- ── Store refs ────────────────────────────────────────────────────
     self.frame   = f
@@ -507,11 +552,12 @@ function Details:Refresh()
 
             local count = GetCountForPeriod(period, itemID)
             if count > 0 then
-                local cached = UGC.DB:GetCachedItem(itemID)
-                local name   = (cached and cached.name) or itemData.hint or ("Item " .. itemID)
-                local icon   = cached and cached.icon
-                local price  = GetAuctionPrice(itemID)
-                local copper = price and (price * count) or 0
+                local cached  = UGC.DB:GetCachedItem(itemID)
+                local name    = (cached and cached.name) or itemData.hint or ("Item " .. itemID)
+                local icon    = cached and cached.icon
+                local quality = cached and cached.quality
+                local price   = GetAuctionPrice(itemID)
+                local copper  = price and (price * count) or 0
 
                 totalCount  = totalCount + count
                 totalCopper = totalCopper + copper
@@ -520,6 +566,7 @@ function Details:Refresh()
                     itemID   = itemID,
                     name     = name,
                     icon     = icon,
+                    quality  = quality,
                     category = cat,
                     count    = count,
                     copper   = copper,
@@ -554,6 +601,18 @@ function Details:Refresh()
 
         -- Icon
         row.icon:SetTexture(item.icon or ICON_UNKNOWN)
+
+        -- Quality stars
+        local q   = item.quality
+        local col = q and QUALITY_COLORS[q]
+        for i = 1, 3 do
+            if col and i <= q then
+                row.qualityStars[i]:SetVertexColor(col[1], col[2], col[3])
+                row.qualityStars[i]:Show()
+            else
+                row.qualityStars[i]:Hide()
+            end
+        end
 
         -- Name (color-coded by category)
         local catData = UGC.CATEGORIES[item.category]
@@ -623,9 +682,40 @@ function Details:Refresh()
         end
     end
 
-    self._summaryText:SetText(string.format(
+    self._summaryLine1:SetText(string.format(
         "Session: %s  |  Period: |cffffd700%s|r  |  Items: %d  |  Value: %s%s%s",
         durStr, periodLabel, totalCount,
         totalCopper > 0 and FormatCoin(totalCopper) or "|cff888888Unknown|r",
         rateStr, topEarner))
+
+    -- Gather actions line
+    local sc = UGC.Session.gatherCount
+    local sessTotal = (sc.herbs or 0) + (sc.ore or 0) + (sc.fish or 0) + (sc.leather or 0)
+    local cats = UGC.CATEGORIES
+
+    -- Map period tab to gatherActions period (lastHour has no action bucket → use daily)
+    local gaPeriod = (period == "lastHour") and "daily"
+                  or (period == "weekly")   and "weekly"
+                  or (period == "daily")    and "daily"
+                  or "allTime"
+    local ga = UGC.DB:GetGatherActions(gaPeriod)
+    local gaPeriodLabel = (gaPeriod == "allTime") and "all time"
+                       or (gaPeriod == "daily")   and "today"
+                       or "this week"
+
+    self._summaryLine2:SetText(string.format(
+        "|cff888888Actions session:|r %d  "..
+        "(|cff%s%dH|r  |cff%s%dO|r  |cff%s%dF|r  |cff%s%dL|r)"..
+        "   |cff888888%s:|r %d  "..
+        "(|cff%s%dH|r  |cff%s%dO|r  |cff%s%dF|r  |cff%s%dL|r)",
+        sessTotal,
+        cats.herbs.hex,   sc.herbs   or 0,
+        cats.ore.hex,     sc.ore     or 0,
+        cats.fish.hex,    sc.fish    or 0,
+        cats.leather.hex, sc.leather or 0,
+        gaPeriodLabel, ga.total,
+        cats.herbs.hex,   ga.herbs,
+        cats.ore.hex,     ga.ore,
+        cats.fish.hex,    ga.fish,
+        cats.leather.hex, ga.leather))
 end
