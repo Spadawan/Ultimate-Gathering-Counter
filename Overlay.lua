@@ -25,6 +25,14 @@ local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
 local ICON_ADDON   = "Interface\\Icons\\Ability_Tracking"  -- icône addon (tracking, dispo Classic+Retail)
 
+-- Quality star texture (black TGA, colored via SetVertexColor)
+local STAR_TEX = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star.tga"
+local QUALITY_COLORS = {
+    [1] = { 0.80, 0.54, 0.20 },  -- bronze
+    [2] = { 0.75, 0.75, 0.75 },  -- argent
+    [3] = { 1.00, 0.85, 0.00 },  -- or
+}
+
 
 -------------------------------------------------------------------------------
 -- Coin formatter
@@ -79,11 +87,16 @@ local function CreateItemRow(parent)
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality stars (1★ bronze, 2★ argent, 3★ or) — FontString, fiable sans dépendance texture
-    row.qualityGem = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.qualityGem:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", -1, -3)
-    row.qualityGem:SetFont("Fonts\\ARIALN.TTF", 9, "OUTLINE")
-    row.qualityGem:SetText("")
+    -- Quality stars — 3 texture stars coloriées via SetVertexColor
+    row.qualityStars = {}
+    for i = 1, 3 do
+        local s = row:CreateTexture(nil, "OVERLAY")
+        s:SetSize(7, 7)
+        s:SetTexture(STAR_TEX)
+        s:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 8 - 1, -3)
+        s:Hide()
+        row.qualityStars[i] = s
+    end
 
     row.iconBtn:SetScript("OnEnter", function(self)
         if row.itemID then
@@ -185,7 +198,7 @@ function Overlay:Init()
     local f = CreateFrame("Frame", "UGC_Overlay", UIParent, "BackdropTemplate")
     f:SetFrameStrata("MEDIUM")
     f:SetFrameLevel(10)
-    f:SetSize(OVERLAY_WIDTH, OVERLAY_HEIGHT)
+    f:SetSize(OVERLAY_WIDTH, settings.overlayHeight or OVERLAY_HEIGHT)
     f:SetBackdrop({
         bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -215,6 +228,22 @@ function Overlay:Init()
     f:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
         Overlay:SavePosition()
+    end)
+
+    -- Resize handle (bottom-right corner)
+    f:SetResizable(true)
+    f:SetResizeBounds(OVERLAY_WIDTH, MIN_HEIGHT)
+    local resizeGrip = CreateFrame("Button", nil, f)
+    resizeGrip:SetSize(16, 16)
+    resizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+    resizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    resizeGrip:SetScript("OnMouseDown", function(_, btn)
+        if btn == "LeftButton" then f:StartSizing("BOTTOMRIGHT") end
+    end)
+    resizeGrip:SetScript("OnMouseUp", function()
+        f:StopMovingOrSizing()
+        UGC.DB:GetSettings().overlayHeight = math.floor(f:GetHeight())
     end)
 
     -- ── Title bar ────────────────────────────────────────────────────
@@ -399,6 +428,7 @@ function Overlay:Init()
             totalBar:Show()
             titleText:SetText("|cff33E633UGC|r  Ultimate Gathering Counter")
             addonIcon:Hide()
+            f:SetHeight(UGC.DB:GetSettings().overlayHeight or OVERLAY_HEIGHT)
             minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up")
             minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Down")
             minimizeBtn:SetScript("OnEnter", function(self)
@@ -568,13 +598,17 @@ function Overlay:Refresh()
             -- Icon
             row.icon:SetTexture(item.icon or ICON_UNKNOWN)
 
-            -- Quality stars (1★ bronze, 2★ argent, 3★ or)
-            local QUALITY_STARS = {
-                [1] = "|cffcc8832★|r",
-                [2] = "|cffc0c0c0★★|r",
-                [3] = "|ffffd700★★★|r",
-            }
-            row.qualityGem:SetText(item.quality and QUALITY_STARS[item.quality] or "")
+            -- Quality stars via star.tga textures
+            local q   = item.quality
+            local col = q and QUALITY_COLORS[q]
+            for i = 1, 3 do
+                if col and i <= q then
+                    row.qualityStars[i]:SetVertexColor(col[1], col[2], col[3])
+                    row.qualityStars[i]:Show()
+                else
+                    row.qualityStars[i]:Hide()
+                end
+            end
 
             -- Name
             row.nameText:SetText(item.name)
@@ -636,11 +670,8 @@ function Overlay:Refresh()
         self._emptyText:Hide()
     end
 
-    -- ── Resize frame to fit content ────────────────────────────────
+    -- Update content height so the scroll frame knows the total scrollable area
     self.content:SetHeight(math.max(yOffset, 20))
-    local newH = math.max(MIN_HEIGHT,
-                 math.min(MAX_HEIGHT, yOffset + 44 + 34))
-    self.frame:SetHeight(newH)
 
     -- ── Total value bar ────────────────────────────────────────────
     if rowIdx > 0 then

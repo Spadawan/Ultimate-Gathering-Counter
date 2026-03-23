@@ -14,9 +14,10 @@ local _initialized = false
 
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
-    startTime   = 0,
-    items       = {},        -- [itemID] = { gained = N, bagCount = N }
-    bagSnapshot = {},        -- [itemID] = count (result of last bag scan)
+    startTime    = 0,
+    items        = {},        -- [itemID] = { gained = N, bagCount = N }
+    bagSnapshot  = {},        -- [itemID] = count (result of last bag scan)
+    gatherCount  = { herbs = 0, ore = 0, fish = 0, leather = 0 }, -- gathering actions this session
 }
 
 -------------------------------------------------------------------------------
@@ -135,6 +136,7 @@ function Tracker:ScanBags()
 
     -- Compute deltas against previous snapshot
     local oldSnapshot = UGC.Session.bagSnapshot
+    local gainedCats  = {}  -- categories with positive delta this scan
     for itemID, newCount in pairs(newSnapshot) do
         local oldCount = oldSnapshot[itemID] or 0
         local delta    = newCount - oldCount
@@ -145,7 +147,15 @@ function Tracker:ScanBags()
             end
             UGC.Session.items[itemID].gained = UGC.Session.items[itemID].gained + delta
             UGC.DB:RecordGain(itemID, delta)
+            -- Track which category had a gain
+            local cat = UGC.ITEM_DB[itemID] and UGC.ITEM_DB[itemID].category
+            if cat then gainedCats[cat] = true end
         end
+    end
+    -- One gathering action per category with gains in this scan
+    for cat in pairs(gainedCats) do
+        UGC.DB:RecordGatherAction(cat)
+        UGC.Session.gatherCount[cat] = (UGC.Session.gatherCount[cat] or 0) + 1
     end
 
     -- Update all tracked items' bag counts
@@ -325,6 +335,7 @@ end
 -------------------------------------------------------------------------------
 function Tracker:ResetSession()
     UGC.DB:ResetSession()
+    wipe(UGC.Session.gatherCount)
     self:_buildSnapshot()
 end
 

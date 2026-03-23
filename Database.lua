@@ -9,7 +9,7 @@ local UGC = _G.UGC
 UGC.DB = {}
 local DB = UGC.DB
 
-local SCHEMA_VERSION = 2
+local SCHEMA_VERSION = 3
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -27,12 +27,20 @@ local DEFAULTS = {
         fadeWhenUnfocused   = true, -- fade overlay to 50% when mouse is not over it
         overlayAlpha        = 1.0,  -- base opacity (0.1–1.0)
         overlayMinimized    = false, -- true = title bar only
+        overlayHeight       = 360,  -- user-resized height
+        detailsWidth        = 530,  -- user-resized details window size
+        detailsHeight       = 480,
     },
     allTime        = {},
     weekly         = { weekStart = 0 },
     daily          = { dayStart  = 0 },
     hourlyBuckets  = {},
     itemCache      = {},
+    gatherActions  = {
+        allTime = { herbs = 0, ore = 0, fish = 0, leather = 0 },
+        daily   = { dayStart = 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+        weekly  = { weekStart = 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+    },
 }
 
 -- Recursively fills in missing keys from defaults without overwriting existing data
@@ -59,11 +67,22 @@ function DB:Init()
 
     deepMerge(UGC_DB, DEFAULTS)
 
-    -- Schema migration from v1
-    if (UGC_DB.version or 1) < SCHEMA_VERSION then
-        -- v1 → v2: hourlyBuckets and itemCache are new
+    -- Schema migrations
+    local ver = UGC_DB.version or 1
+    if ver < 2 then
         if not UGC_DB.hourlyBuckets then UGC_DB.hourlyBuckets = {} end
         if not UGC_DB.itemCache      then UGC_DB.itemCache      = {} end
+    end
+    if ver < 3 then
+        if not UGC_DB.gatherActions then
+            UGC_DB.gatherActions = {
+                allTime = { herbs=0, ore=0, fish=0, leather=0 },
+                daily   = { dayStart=0, herbs=0, ore=0, fish=0, leather=0 },
+                weekly  = { weekStart=0, herbs=0, ore=0, fish=0, leather=0 },
+            }
+        end
+    end
+    if ver < SCHEMA_VERSION then
         UGC_DB.version = SCHEMA_VERSION
     end
 
@@ -84,6 +103,21 @@ function DB:Init()
         local ws = weekStart
         wipe(UGC_DB.weekly)
         UGC_DB.weekly.weekStart = ws
+    end
+
+    -- Reset stale gatherActions daily/weekly
+    local ga = UGC_DB.gatherActions
+    if ga then
+        if ga.daily.dayStart ~= dayStart then
+            local ds = dayStart
+            wipe(ga.daily)
+            ga.daily.dayStart = ds
+        end
+        if ga.weekly.weekStart ~= weekStart then
+            local ws = weekStart
+            wipe(ga.weekly)
+            ga.weekly.weekStart = ws
+        end
     end
 
     self:_ensureHourlyBucket(now)
@@ -182,6 +216,29 @@ function DB:GetAllTimeFirstSeen(itemID)
 end
 
 -------------------------------------------------------------------------------
+-- Gather actions (count of gathering events, not item quantities)
+-------------------------------------------------------------------------------
+function DB:RecordGatherAction(category)
+    if not category then return end
+    local ga = UGC_DB.gatherActions
+    ga.allTime[category]  = (ga.allTime[category]  or 0) + 1
+    ga.daily[category]    = (ga.daily[category]    or 0) + 1
+    ga.weekly[category]   = (ga.weekly[category]   or 0) + 1
+end
+
+-- Returns { herbs, ore, fish, leather, total } for the given period key.
+-- period: "allTime" | "daily" | "weekly"
+function DB:GetGatherActions(period)
+    local ga = UGC_DB.gatherActions
+    local t  = (ga and ga[period]) or {}
+    local h  = t.herbs   or 0
+    local o  = t.ore     or 0
+    local f  = t.fish    or 0
+    local l  = t.leather or 0
+    return { herbs = h, ore = o, fish = f, leather = l, total = h + o + f + l }
+end
+
+-------------------------------------------------------------------------------
 -- Reset
 -------------------------------------------------------------------------------
 function DB:ResetSession()
@@ -189,6 +246,9 @@ function DB:ResetSession()
         UGC.Session.startTime = GetTime()
         wipe(UGC.Session.items)
         UGC.Session.bagSnapshot = {}
+        if UGC.Session.gatherCount then
+            wipe(UGC.Session.gatherCount)
+        end
     end
 end
 
@@ -201,6 +261,17 @@ function DB:ResetAllTime()
     wipe(UGC_DB.hourlyBuckets)
     UGC_DB.weekly.weekStart = ws
     UGC_DB.daily.dayStart   = ds
+    -- Reset gatherActions
+    local ga = UGC_DB.gatherActions
+    if ga then
+        local ws2 = ga.weekly.weekStart
+        local ds2 = ga.daily.dayStart
+        wipe(ga.allTime)
+        wipe(ga.daily)
+        wipe(ga.weekly)
+        ga.daily.dayStart   = ds2
+        ga.weekly.weekStart = ws2
+    end
     self:ResetSession()
 end
 
