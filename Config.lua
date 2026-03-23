@@ -10,7 +10,7 @@ UGC.Config = {}
 local Config = UGC.Config
 
 local WIN_WIDTH  = 370
-local WIN_HEIGHT = 520
+local WIN_HEIGHT = 560
 
 -------------------------------------------------------------------------------
 -- UI helpers
@@ -312,26 +312,36 @@ function Config:Init()
         print("|cff33E633UGC:|r Session counters reset.")
     end)
 
-    MakeButton(f, "Reset All-Time Data", 155, 24, 160, yOff, function()
-        StaticPopupDialogs["UGC_CONFIRM_RESET"] = {
-            text           = "|cffff4444Warning!|r\nThis will permanently delete ALL gathered statistics (all-time, weekly, daily, hourly). This cannot be undone.\n\nAre you sure?",
-            button1        = "Yes, reset everything",
-            button2        = "Cancel",
-            OnAccept       = function()
+    if not StaticPopupDialogs["UGC_CONFIRM_RESET_DATA"] then
+        StaticPopupDialogs["UGC_CONFIRM_RESET_DATA"] = {
+            text         = "|cffff4444Warning!|r\nThis will permanently delete ALL gathered statistics and session data. This cannot be undone.\n\nAre you sure?",
+            button1      = "Yes, reset data",
+            button2      = "Cancel",
+            OnAccept     = function()
                 UGC.DB:ResetAllTime()
                 if UGC.Overlay then UGC.Overlay:Refresh() end
                 if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
                     UGC.Details:Refresh()
                 end
-                print("|cff33E633UGC:|r All-time data permanently deleted.")
+                print("|cff33E633UGC:|r All gathered data has been permanently deleted.")
             end,
-            timeout        = 0,
-            whileDead      = true,
-            hideOnEscape   = true,
+            timeout      = 0,
+            whileDead    = true,
+            hideOnEscape = true,
         }
-        StaticPopup_Show("UGC_CONFIRM_RESET")
+    end
+
+    MakeButton(f, "Reset Data", 155, 24, 160, yOff, function()
+        StaticPopup_Show("UGC_CONFIRM_RESET_DATA")
     end)
-    yOff = yOff - 34
+
+    local resetHint = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    resetHint:SetPoint("TOPLEFT", f, "TOPLEFT", 14, yOff - 30)
+    resetHint:SetWidth(WIN_WIDTH - 28)
+    resetHint:SetJustifyH("LEFT")
+    resetHint:SetText("Reset Data deletes all saved statistics (all-time, weekly, daily, hourly) after confirmation.")
+    resetHint:SetTextColor(0.45, 0.45, 0.45)
+    yOff = yOff - 52
 
     -- Auctionator status note
     local aucNote = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")

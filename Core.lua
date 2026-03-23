@@ -38,11 +38,15 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             UGC.VERSION))
 
     elseif event == "PLAYER_ENTERING_WORLD" then
-        -- Re-scan bags on each zone change / loading screen
+        -- Re-baseline bags after loading screens/reloads so existing bag contents
+        -- are not miscounted as newly gathered items.
         if UGC.Tracker and UGC.Session and UGC.Session.startTime > 0 then
-            UGC.Tracker:ScanBags()
+            UGC.Tracker:RebaselineBags()
             if UGC.Overlay and UGC.Overlay.frame then
                 UGC.Overlay:Refresh()
+            end
+            if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
+                UGC.Details:Refresh()
             end
         end
 
