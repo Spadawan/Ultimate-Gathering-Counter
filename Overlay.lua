@@ -24,13 +24,13 @@ local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
 
--- WoW item quality colors (nil = no border for common/white)
+-- Dragonflight crafting ingredient quality tiers (1★=bronze, 2★=argent, 3★=or)
 local QUALITY_COLORS = {
-    [0] = { 0.62, 0.62, 0.62 },  -- Poor (gray)
-    [1] = nil,                    -- Common (no border)
-    [2] = { 0.12, 1.00, 0.00 },  -- Uncommon (green)
-    [3] = { 0.00, 0.44, 0.87 },  -- Rare (blue)
-    [4] = { 0.64, 0.21, 0.93 },  -- Epic (purple)
+    [0] = { 0.62, 0.62, 0.62 },  -- Poor      (gris)
+    [1] = { 0.80, 0.50, 0.20 },  -- Common    = bronze (1★)
+    [2] = { 0.75, 0.75, 0.80 },  -- Uncommon  = argent (2★)
+    [3] = { 1.00, 0.82, 0.00 },  -- Rare      = or     (3★)
+    [4] = { 0.64, 0.21, 0.93 },  -- Epic      (violet)
     [5] = { 1.00, 0.50, 0.00 },  -- Legendary (orange)
 }
 
@@ -284,6 +284,23 @@ function Overlay:Init()
         GameTooltip:Show()
     end)
     configBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- Reset session
+    local resetBtn = CreateFrame("Button", nil, f)
+    resetBtn:SetSize(16, 16)
+    resetBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    resetBtn:SetNormalTexture("Interface\\TimeManager\\ResetButton")
+    resetBtn:SetHighlightTexture("Interface\\TimeManager\\ResetButton", "ADD")
+    resetBtn:SetScript("OnClick", function()
+        UGC.Tracker:ResetSession()
+        Overlay:Refresh()
+    end)
+    resetBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+        GameTooltip:SetText("Reset session\n|cff888888/ugc reset|r")
+        GameTooltip:Show()
+    end)
+    resetBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     -- ── Column header row ─────────────────────────────────────────────
     local colHdr = CreateFrame("Frame", nil, f)
