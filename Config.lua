@@ -228,7 +228,25 @@ function Config:Init()
         function(v)
             s.fadeWhenUnfocused = v
             if UGC.Overlay and UGC.Overlay.frame then
-                UGC.Overlay.frame:SetAlpha(v and 0.5 or 1.0)
+                local base = s.overlayAlpha or 1.0
+                UGC.Overlay.frame:SetAlpha(v and base * 0.5 or base)
+            end
+        end)
+    yOff = yOff - 4
+
+    -- Overlay base transparency slider
+    _, yOff = MakeSlider(f, "UGC_AlphaSlider", "Overlay transparency:", yOff,
+        0.1, 1.0, 0.05,
+        function() return s.overlayAlpha or 1.0 end,
+        function(v)
+            s.overlayAlpha = v
+            if UGC.Overlay and UGC.Overlay.frame then
+                local base = v
+                if s.fadeWhenUnfocused and not UGC.Overlay.frame:IsMouseOver() then
+                    UGC.Overlay.frame:SetAlpha(base * 0.5)
+                else
+                    UGC.Overlay.frame:SetAlpha(base)
+                end
             end
         end)
     yOff = yOff - 4

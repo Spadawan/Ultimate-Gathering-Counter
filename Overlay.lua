@@ -87,12 +87,11 @@ local function CreateItemRow(parent)
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality color dot (bottom-right corner of icon, hidden by default)
-    row.qualityDot = row.iconBtn:CreateTexture(nil, "OVERLAY")
-    row.qualityDot:SetSize(6, 6)
-    row.qualityDot:SetPoint("BOTTOMRIGHT", row.iconBtn, "BOTTOMRIGHT", 0, 0)
-    row.qualityDot:SetColorTexture(1, 1, 1, 1)
-    row.qualityDot:Hide()
+    -- Quality border (WoW-style colored frame around the icon)
+    row.qualityBorder = row.iconBtn:CreateTexture(nil, "OVERLAY")
+    row.qualityBorder:SetAllPoints()
+    row.qualityBorder:SetTexture("Interface\\Common\\WhiteIconFrame")
+    row.qualityBorder:SetVertexColor(1, 1, 1, 0)  -- invisible by default
 
     row.iconBtn:SetScript("OnEnter", function(self)
         if row.itemID then
@@ -151,7 +150,7 @@ local function CreateSectionHeader(parent, cat)
     hdr.arrow = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hdr.arrow:SetPoint("LEFT", hdr, "LEFT", 6, 0)
     hdr.arrow:SetTextColor(0.8, 0.8, 0.8)
-    hdr.arrow:SetText("▼")
+    hdr.arrow:SetText("-")
 
     hdr.label = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     hdr.label:SetPoint("LEFT", hdr, "LEFT", 20, 0)
@@ -203,6 +202,7 @@ function Overlay:Init()
     })
     f:SetBackdropColor(0.08, 0.08, 0.08, 0.88)
     f:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+    f:SetAlpha(settings.overlayAlpha or 1.0)
     f:SetClampedToScreen(true)
 
     -- Restore saved position
@@ -356,11 +356,11 @@ function Overlay:Init()
         if _fadeTimer < 0.1 then return end
         _fadeTimer = 0
         local s = UGC.DB:GetSettings()
+        local base = s.overlayAlpha or 1.0
         if s.fadeWhenUnfocused then
-            -- IsMouseOver covers the frame and all child frames
-            self:SetAlpha((self:IsMouseOver() or GameTooltip:IsShown()) and 1.0 or 0.5)
+            self:SetAlpha((self:IsMouseOver() or GameTooltip:IsShown()) and base or base * 0.5)
         else
-            self:SetAlpha(1.0)
+            self:SetAlpha(base)
         end
     end)
 
@@ -458,7 +458,7 @@ function Overlay:Refresh()
 
             local catData   = UGC.CATEGORIES[currentCat]
             local collapsed = settings.collapsedCategories[currentCat]
-            hdr.arrow:SetText(collapsed and "▶" or "▼")
+            hdr.arrow:SetText(collapsed and "+" or "-")
             hdr.label:SetText(catData.label:upper())
             hdr.label:SetTextColor(catData.color.r, catData.color.g, catData.color.b)
             hdr.bg:SetColorTexture(
@@ -495,13 +495,12 @@ function Overlay:Refresh()
             -- Icon
             row.icon:SetTexture(item.icon or ICON_UNKNOWN)
 
-            -- Quality dot (colored indicator for non-common items)
+            -- Quality border (colored frame around icon for non-common items)
             local qc = QUALITY_COLORS[item.quality or 1]
             if qc then
-                row.qualityDot:SetColorTexture(qc[1], qc[2], qc[3], 1)
-                row.qualityDot:Show()
+                row.qualityBorder:SetVertexColor(qc[1], qc[2], qc[3], 1)
             else
-                row.qualityDot:Hide()
+                row.qualityBorder:SetVertexColor(1, 1, 1, 0)
             end
 
             -- Name

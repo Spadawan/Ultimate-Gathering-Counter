@@ -25,6 +25,7 @@ local DEFAULTS = {
         chatLootDetect      = true,
         collapsedCategories = {},   -- [catKey] = true when collapsed
         fadeWhenUnfocused   = true, -- fade overlay to 50% when mouse is not over it
+        overlayAlpha        = 1.0,  -- base opacity (0.1–1.0)
     },
     allTime        = {},
     weekly         = { weekStart = 0 },
