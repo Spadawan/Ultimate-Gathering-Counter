@@ -87,13 +87,18 @@ local function CreateItemRow(parent)
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality stars — 3 texture stars coloriées via SetVertexColor
+    -- Quality stars — star.tga en masque alpha sur quad blanc coloré via SetVertexColor
+    -- (SetVertexColor ne fonctionne pas sur pixels noirs : 0 × couleur = 0)
     row.qualityStars = {}
     for i = 1, 3 do
         local s = row:CreateTexture(nil, "OVERLAY")
         s:SetSize(7, 7)
-        s:SetTexture(STAR_TEX)
+        s:SetColorTexture(1, 1, 1, 1)          -- base blanche, teintée via SetVertexColor
         s:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 8 - 1, -3)
+        local mask = row:CreateMaskTexture()
+        mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
+        mask:SetAllPoints(s)
+        s:AddMaskTexture(mask)
         s:Hide()
         row.qualityStars[i] = s
     end
