@@ -10,6 +10,85 @@ _G.UGC = UGC
 UGC.ADDON_NAME = "UltimateGatheringCounter"
 UGC.VERSION    = "1.0.0"
 
+UGC.API = {}
+local API = UGC.API
+
+-------------------------------------------------------------------------------
+-- Compatibility helpers for Retail / MoP Classic / Cata Classic / Wrath /
+-- Burning Crusade Classic / Classic Era clients.
+-------------------------------------------------------------------------------
+function API:GetServerTime()
+    if type(GetServerTime) == "function" then
+        return GetServerTime()
+    end
+    return time()
+end
+
+function API:IsAddOnLoaded(addonName)
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        return C_AddOns.IsAddOnLoaded(addonName)
+    end
+    return IsAddOnLoaded(addonName)
+end
+
+function API:SetTextureColor(texture, r, g, b, a)
+    if not texture then return end
+    if texture.SetColorTexture then
+        texture:SetColorTexture(r, g, b, a or 1)
+    else
+        texture:SetTexture(r, g, b, a or 1)
+    end
+end
+
+function API:CreateFrame(frameType, name, parent, template)
+    if template == "BackdropTemplate" and not BackdropTemplateMixin then
+        template = nil
+    end
+    return CreateFrame(frameType, name, parent, template)
+end
+
+function API:SetResizeBounds(frame, minWidth, minHeight, maxWidth, maxHeight)
+    if frame.SetResizeBounds then
+        frame:SetResizeBounds(minWidth, minHeight, maxWidth, maxHeight)
+    else
+        frame:SetMinResize(minWidth, minHeight)
+        if maxWidth or maxHeight then
+            frame:SetMaxResize(maxWidth or 10000, maxHeight or 10000)
+        end
+    end
+end
+
+function API:CreateQualityStars(parent, anchorTo, count, size, spacing, texturePath)
+    local stars = {}
+    local canMask = parent.CreateMaskTexture and texturePath and type(texturePath) == "string"
+
+    for i = 1, count do
+        local star = parent:CreateTexture(nil, "OVERLAY")
+        star:SetSize(size, size)
+
+        if canMask then
+            star:SetTexture("Interface\\Buttons\\WHITE8X8")
+            star:SetPoint("BOTTOMLEFT", anchorTo, "BOTTOMLEFT", (i - 1) * spacing, 0)
+
+            local mask = parent:CreateMaskTexture()
+            mask:SetTexture(texturePath, "CLAMPTOBLACK", "CLAMPTOBLACK")
+            mask:SetSize(size, size)
+            mask:SetPoint("BOTTOMLEFT", anchorTo, "BOTTOMLEFT", (i - 1) * spacing, 0)
+            star:AddMaskTexture(mask)
+            star._ugcMask = mask
+        else
+            star:SetTexture("Interface\\COMMON\\Indicator-Yellow")
+            star:SetTexCoord(0.2, 0.8, 0.2, 0.8)
+            star:SetPoint("BOTTOMLEFT", anchorTo, "BOTTOMLEFT", (i - 1) * spacing, 0)
+        end
+
+        star:Hide()
+        stars[i] = star
+    end
+
+    return stars
+end
+
 -- Category definitions
 UGC.CATEGORIES = {
     herbs   = { key = "herbs",   label = "Herbs",   color = { r = 0.2, g = 0.9, b = 0.2 }, hex = "33E633" },
@@ -54,6 +133,9 @@ addItems("herbs", {
     [785]    = "Mageroyal",
     [2447]   = "Peacebloom",
     [2449]   = "Earthroot",
+    [2450]   = "Briarthorn",
+    [2452]   = "Swiftthistle",
+    [2453]   = "Bruiseweed",
     [3355]   = "Wild Steelbloom",
     [3356]   = "Kingsblood",
     [3357]   = "Liferoot",
@@ -61,8 +143,10 @@ addItems("herbs", {
     [3369]   = "Grave Moss",
     [3818]   = "Fadeleaf",
     [3819]   = "Dragon's Teeth",
+    [3821]   = "Goldthorn",
     [3820]   = "Stranglekelp",
     [4625]   = "Firebloom",
+    [8153]   = "Wildvine",
     [8831]   = "Purple Lotus",
     [8836]   = "Arthas' Tears",
     [8838]   = "Sungrass",
@@ -75,6 +159,7 @@ addItems("herbs", {
     [13466]  = "Mountain Silversage",
     [13467]  = "Plaguebloom",
     [13468]  = "Icecap",
+    [13469]  = "Black Lotus",
     -- TBC
     [22785]  = "Felweed",
     [22786]  = "Dreaming Glory",
@@ -214,15 +299,32 @@ addItems("ore", {
 addItems("fish", {
     -- Classic
     [6291]   = "Raw Bristle Whisker Catfish",
+    [6300]   = "Raw Mithril Head Trout",
+    [6302]   = "Raw Slitherskin Mackerel",
     [6303]   = "Raw Longjaw Mud Snapper",
     [6308]   = "Raw Brilliant Smallfish",
     [6317]   = "Raw Loch Frenzy",
     [6318]   = "Oily Blackmouth",
+    [6360]   = "Steelscale Crushfish",
     [6358]   = "Firefin Snapper",
     [6361]   = "Raw Rainbow Fin Albacore",
     [6362]   = "Raw Rockscale Cod",
+    [6363]   = "Raw Whitescale Salmon",
+    [6364]   = "Raw Greater Sagefish",
+    [13754]  = "Raw Glossy Mightfish",
+    [13755]  = "Winter Squid",
+    [13756]  = "Raw Summer Bass",
+    [13757]  = "Lightning Eel",
+    [13758]  = "Raw Redgill",
+    [13759]  = "Raw Nightfin Snapper",
+    [13760]  = "Raw Sunscale Salmon",
+    [13888]  = "Darkclaw Lobster",
+    [13889]  = "Raw Whitescale Salmon",
+    [13893]  = "Large Raw Mightfish",
+    [13894]  = "Raw Greater Sagefish",
     [21153]  = "Raw Sagefish",
     [21154]  = "Raw Greater Sagefish",
+    [6522]   = "Deviate Fish",
     -- TBC
     [27422]  = "Barbed Gill Trout",
     [27425]  = "Spotted Feltail",
@@ -304,11 +406,18 @@ addItems("leather", {
     [8169]   = "Thick Hide",
     [8170]   = "Rugged Leather",
     [8171]   = "Rugged Hide",
+    [15408]  = "Heavy Scorpid Scale",
+    [15410]  = "Scale of Onyxia",
+    [15412]  = "Green Dragonscale",
+    [15414]  = "Red Dragonscale",
+    [15415]  = "Blue Dragonscale",
+    [15416]  = "Black Dragonscale",
+    [17012]  = "Core Leather",
     -- TBC
     [25649]  = "Knothide Leather",
     [25650]  = "Knothide Leather Scraps",
-    [25699]  = "Fel Scales",
-    [25700]  = "Fel Hide",
+    [25699]  = "Crystallized Fel Scales",
+    [25700]  = "Fel Scales",
     [33567]  = "Wind Scales",
     [33568]  = "Cobra Scales",
     -- WotLK

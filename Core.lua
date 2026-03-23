@@ -5,11 +5,30 @@
 -------------------------------------------------------------------------------
 
 local UGC = _G.UGC
+local API = UGC.API
 
 local eventFrame = CreateFrame("Frame", "UGC_CoreFrame")
+local pendingBagScan = false
+
+local function RequestBagScan()
+    if pendingBagScan then return end
+    pendingBagScan = true
+    C_Timer.After(0.1, function()
+        pendingBagScan = false
+        if not UGC.Tracker then return end
+        UGC.Tracker:ScanBags()
+        if UGC.Overlay and UGC.Overlay.frame then
+            UGC.Overlay:Refresh()
+        end
+        if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
+            UGC.Details:Refresh()
+        end
+    end)
+end
 
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
+eventFrame:RegisterEvent("BAG_UPDATE")
 eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 eventFrame:RegisterEvent("CHAT_MSG_LOOT")
 eventFrame:RegisterEvent("PLAYER_LOGOUT")
@@ -46,15 +65,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             end
         end
 
-    elseif event == "BAG_UPDATE_DELAYED" then
-        UGC.Tracker:ScanBags()
-        if UGC.Overlay and UGC.Overlay.frame then
-            UGC.Overlay:Refresh()
-        end
-        -- Propagate to Details if it's open
-        if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
-            UGC.Details:Refresh()
-        end
+    elseif event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" then
+        RequestBagScan()
 
     elseif event == "CHAT_MSG_LOOT" then
         UGC.Tracker:ParseLootMessage(arg1)
@@ -112,7 +124,7 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc config|r         Open settings panel")
         print("|cffffd700/ugc reset|r          Reset current session counters")
         print("|cffffd700/ugc help|r           Show this help")
-        if C_AddOns.IsAddOnLoaded("Auctionator") then
+        if API:IsAddOnLoaded("Auctionator") then
             print("|cff33E633Auctionator|r detected — price data available.")
         else
             print("|cffff8800Auctionator|r not loaded — values will show as \"?\".")

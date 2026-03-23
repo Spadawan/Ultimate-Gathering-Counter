@@ -6,6 +6,7 @@
 -------------------------------------------------------------------------------
 
 local UGC = _G.UGC
+local API = UGC.API
 
 UGC.Overlay = {}
 local Overlay = UGC.Overlay
@@ -56,7 +57,7 @@ end
 -- Auctionator price helper (returns copper or nil)
 -------------------------------------------------------------------------------
 local function GetAuctionPrice(itemID)
-    if not C_AddOns.IsAddOnLoaded("Auctionator") then return nil end
+    if not API:IsAddOnLoaded("Auctionator") then return nil end
     if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
         return nil
     end
@@ -77,7 +78,7 @@ local function CreateItemRow(parent)
     -- Subtle alternating-row bg (toggled externally)
     row.bg = row:CreateTexture(nil, "BACKGROUND")
     row.bg:SetAllPoints()
-    row.bg:SetColorTexture(1, 1, 1, 0)  -- transparent by default
+    API:SetTextureColor(row.bg, 1, 1, 1, 0)  -- transparent by default
 
     -- Item icon (clickable for tooltip)
     row.iconBtn = CreateFrame("Button", nil, row)
@@ -90,22 +91,7 @@ local function CreateItemRow(parent)
     -- Quality stars — WHITE8X8 (base blanche) masquée par star.tga, teintée via SetVertexColor
     -- Mask positionné explicitement (même ancre que la texture) pour garantir l'alignement.
     -- Stars superposées sur l'icône (BOTTOMLEFT de l'icône, layer OVERLAY).
-    row.qualityStars = {}
-    for i = 1, 3 do
-        -- Base blanche (teintable via SetVertexColor)
-        local s = row.iconBtn:CreateTexture(nil, "OVERLAY")
-        s:SetSize(6, 6)
-        s:SetTexture("Interface\\Buttons\\WHITE8X8")
-        s:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
-        -- Masque : découpe la forme de l'étoile (canal alpha du TGA)
-        local mask = row.iconBtn:CreateMaskTexture()
-        mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
-        mask:SetSize(6, 6)
-        mask:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
-        s:AddMaskTexture(mask)
-        s:Hide()
-        row.qualityStars[i] = s
-    end
+    row.qualityStars = API:CreateQualityStars(row.iconBtn, row.iconBtn, 3, 6, 7, STAR_TEX)
 
     row.iconBtn:SetScript("OnEnter", function(self)
         if row.itemID then
@@ -154,7 +140,7 @@ local function CreateSectionHeader(parent, cat)
 
     hdr.bg = hdr:CreateTexture(nil, "BACKGROUND")
     hdr.bg:SetAllPoints()
-    hdr.bg:SetColorTexture(
+    API:SetTextureColor(hdr.bg,
         catData.color.r * 0.25,
         catData.color.g * 0.25,
         catData.color.b * 0.25,
@@ -176,13 +162,13 @@ local function CreateSectionHeader(parent, cat)
 
     -- Hover highlight
     hdr:SetScript("OnEnter", function(self)
-        self.bg:SetColorTexture(
+        API:SetTextureColor(self.bg,
             catData.color.r * 0.4,
             catData.color.g * 0.4,
             catData.color.b * 0.4, 0.85)
     end)
     hdr:SetScript("OnLeave", function(self)
-        self.bg:SetColorTexture(
+        API:SetTextureColor(self.bg,
             catData.color.r * 0.25,
             catData.color.g * 0.25,
             catData.color.b * 0.25, 0.7)
@@ -204,7 +190,7 @@ end
 function Overlay:Init()
     local settings = UGC.DB:GetSettings()
 
-    local f = CreateFrame("Frame", "UGC_Overlay", UIParent, "BackdropTemplate")
+    local f = API:CreateFrame("Frame", "UGC_Overlay", UIParent, "BackdropTemplate")
     f:SetFrameStrata("MEDIUM")
     f:SetFrameLevel(10)
     f:SetSize(OVERLAY_WIDTH, settings.overlayHeight or OVERLAY_HEIGHT)
@@ -241,7 +227,7 @@ function Overlay:Init()
 
     -- Resize handle (bottom-right corner)
     f:SetResizable(true)
-    f:SetResizeBounds(OVERLAY_WIDTH, MIN_HEIGHT)
+    API:SetResizeBounds(f, OVERLAY_WIDTH, MIN_HEIGHT, OVERLAY_WIDTH, MAX_HEIGHT)
     local resizeGrip = CreateFrame("Button", nil, f)
     resizeGrip:SetSize(16, 16)
     resizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
@@ -263,7 +249,7 @@ function Overlay:Init()
 
     local titleBg = titleBar:CreateTexture(nil, "BACKGROUND")
     titleBg:SetAllPoints()
-    titleBg:SetColorTexture(0.12, 0.12, 0.12, 0.9)
+    API:SetTextureColor(titleBg, 0.12, 0.12, 0.12, 0.9)
 
     local titleText = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     titleText:SetPoint("LEFT", titleBar, "LEFT", 6, 0)
@@ -362,7 +348,7 @@ function Overlay:Init()
 
     local colHdrBg = colHdr:CreateTexture(nil, "BACKGROUND")
     colHdrBg:SetAllPoints()
-    colHdrBg:SetColorTexture(0.0, 0.0, 0.0, 0.4)
+    API:SetTextureColor(colHdrBg, 0.0, 0.0, 0.0, 0.4)
 
     local function MakeColHdr(text, xOff, width, justify)
         local fs = colHdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -396,7 +382,7 @@ function Overlay:Init()
 
     local totalBarBg = totalBar:CreateTexture(nil, "BACKGROUND")
     totalBarBg:SetAllPoints()
-    totalBarBg:SetColorTexture(0.05, 0.05, 0.05, 0.85)
+    API:SetTextureColor(totalBarBg, 0.05, 0.05, 0.05, 0.85)
 
     local totalLabel = totalBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     totalLabel:SetPoint("LEFT", totalBar, "LEFT", 8, 0)
@@ -573,7 +559,7 @@ function Overlay:Refresh()
             hdr.arrow:SetText(collapsed and "+" or "-")
             hdr.label:SetText(catData.label:upper())
             hdr.label:SetTextColor(catData.color.r, catData.color.g, catData.color.b)
-            hdr.bg:SetColorTexture(
+            API:SetTextureColor(hdr.bg,
                 catData.color.r * 0.25, catData.color.g * 0.25,
                 catData.color.b * 0.25, 0.7)
             hdr.count:SetText(catCounts[currentCat] .. " items")
@@ -599,9 +585,9 @@ function Overlay:Refresh()
 
             -- Alternating row background
             if rowNum % 2 == 0 then
-                row.bg:SetColorTexture(1, 1, 1, 0.04)
+                API:SetTextureColor(row.bg, 1, 1, 1, 0.04)
             else
-                row.bg:SetColorTexture(0, 0, 0, 0)
+                API:SetTextureColor(row.bg, 0, 0, 0, 0)
             end
 
             -- Icon

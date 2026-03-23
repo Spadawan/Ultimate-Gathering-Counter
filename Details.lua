@@ -5,6 +5,7 @@
 -------------------------------------------------------------------------------
 
 local UGC = _G.UGC
+local API = UGC.API
 
 UGC.Details = {}
 local Details = UGC.Details
@@ -57,7 +58,7 @@ local function FormatCoin(copper)
 end
 
 local function GetAuctionPrice(itemID)
-    if not C_AddOns.IsAddOnLoaded("Auctionator") then return nil end
+    if not API:IsAddOnLoaded("Auctionator") then return nil end
     if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
         return nil
     end
@@ -77,7 +78,7 @@ function Details:_CreateRow(parent)
 
     row.bg = row:CreateTexture(nil, "BACKGROUND")
     row.bg:SetAllPoints()
-    row.bg:SetColorTexture(1, 1, 1, 0)
+    API:SetTextureColor(row.bg, 1, 1, 1, 0)
 
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(ROW_HEIGHT - 2, ROW_HEIGHT - 2)
@@ -85,20 +86,7 @@ function Details:_CreateRow(parent)
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     -- Quality stars — WHITE8X8 masquée par star.tga, superposées sur l'icône
-    row.qualityStars = {}
-    for i = 1, 3 do
-        local s = row:CreateTexture(nil, "OVERLAY")
-        s:SetSize(6, 6)
-        s:SetTexture("Interface\\Buttons\\WHITE8X8")
-        s:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
-        local mask = row:CreateMaskTexture()
-        mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
-        mask:SetSize(6, 6)
-        mask:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
-        s:AddMaskTexture(mask)
-        s:Hide()
-        row.qualityStars[i] = s
-    end
+    row.qualityStars = API:CreateQualityStars(row, row.icon, 3, 6, 7, STAR_TEX)
 
     row.nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     row.nameText:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
@@ -127,12 +115,12 @@ function Details:_CreateRow(parent)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink("item:" .. self.itemID)
             GameTooltip:Show()
-            self.bg:SetColorTexture(1, 1, 1, 0.08)
+            API:SetTextureColor(self.bg, 1, 1, 1, 0.08)
         end
     end)
     row:SetScript("OnLeave", function(self)
         GameTooltip:Hide()
-        self.bg:SetColorTexture(1, 1, 1, 0)
+        API:SetTextureColor(self.bg, 1, 1, 1, 0)
     end)
 
     return row
@@ -154,13 +142,13 @@ function Details:_CreateTabButton(parent, label, index, total)
     -- Background
     btn.bg = btn:CreateTexture(nil, "BACKGROUND")
     btn.bg:SetAllPoints()
-    btn.bg:SetColorTexture(0.15, 0.15, 0.15, 1)
+    API:SetTextureColor(btn.bg, 0.15, 0.15, 0.15, 1)
 
     btn.border = btn:CreateTexture(nil, "ARTWORK")
     btn.border:SetPoint("BOTTOMLEFT",  btn, "BOTTOMLEFT",  0, -1)
     btn.border:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 0, -1)
     btn.border:SetHeight(1)
-    btn.border:SetColorTexture(0.35, 0.35, 0.35, 1)
+    API:SetTextureColor(btn.border, 0.35, 0.35, 0.35, 1)
 
     btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     btn.text:SetAllPoints()
@@ -170,12 +158,12 @@ function Details:_CreateTabButton(parent, label, index, total)
 
     btn:SetScript("OnEnter", function(self)
         if self ~= Details._activeTab then
-            self.bg:SetColorTexture(0.2, 0.2, 0.2, 1)
+            API:SetTextureColor(self.bg, 0.2, 0.2, 0.2, 1)
         end
     end)
     btn:SetScript("OnLeave", function(self)
         if self ~= Details._activeTab then
-            self.bg:SetColorTexture(0.15, 0.15, 0.15, 1)
+            API:SetTextureColor(self.bg, 0.15, 0.15, 0.15, 1)
         end
     end)
 
@@ -185,13 +173,13 @@ end
 function Details:_SetActiveTab(tabKey, btn)
     self._currentTab = tabKey
     for _, b in ipairs(self._tabBtns) do
-        b.bg:SetColorTexture(0.15, 0.15, 0.15, 1)
+        API:SetTextureColor(b.bg, 0.15, 0.15, 0.15, 1)
         b.text:SetTextColor(0.75, 0.75, 0.75)
-        b.border:SetColorTexture(0.35, 0.35, 0.35, 1)
+        API:SetTextureColor(b.border, 0.35, 0.35, 0.35, 1)
     end
-    btn.bg:SetColorTexture(0.08, 0.08, 0.08, 1)
+    API:SetTextureColor(btn.bg, 0.08, 0.08, 0.08, 1)
     btn.text:SetTextColor(1, 1, 1)
-    btn.border:SetColorTexture(0.33, 0.88, 0.33, 1)  -- green underline for active
+    API:SetTextureColor(btn.border, 0.33, 0.88, 0.33, 1)  -- green underline for active
     self._activeTab = btn
 end
 
@@ -205,10 +193,10 @@ function Details:_SetActiveFilter(key)
         local btn = self._filterBtns[k]
         if btn then
             if k == key then
-                btn.bg:SetColorTexture(0.25, 0.55, 0.25, 0.9)
+                API:SetTextureColor(btn.bg, 0.25, 0.55, 0.25, 0.9)
                 btn.text:SetTextColor(1, 1, 1)
             else
-                btn.bg:SetColorTexture(0.15, 0.15, 0.15, 1)
+                API:SetTextureColor(btn.bg, 0.15, 0.15, 0.15, 1)
                 btn.text:SetTextColor(0.65, 0.65, 0.65)
             end
         end
@@ -222,7 +210,7 @@ local function MakeFilterBtn(parent, label, xOff, yOff, width, catColor)
 
     btn.bg = btn:CreateTexture(nil, "BACKGROUND")
     btn.bg:SetAllPoints()
-    btn.bg:SetColorTexture(0.15, 0.15, 0.15, 1)
+    API:SetTextureColor(btn.bg, 0.15, 0.15, 0.15, 1)
 
     btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     btn.text:SetAllPoints()
@@ -301,7 +289,7 @@ end
 -------------------------------------------------------------------------------
 function Details:Init()
     local settings = UGC.DB:GetSettings()
-    local f = CreateFrame("Frame", "UGC_Details", UIParent, "BackdropTemplate")
+    local f = API:CreateFrame("Frame", "UGC_Details", UIParent, "BackdropTemplate")
     f:SetSize(settings.detailsWidth or WINDOW_WIDTH, settings.detailsHeight or WINDOW_HEIGHT)
     f:SetFrameStrata("HIGH")
     f:SetFrameLevel(20)
@@ -324,7 +312,7 @@ function Details:Init()
 
     -- Resize handle
     f:SetResizable(true)
-    f:SetResizeBounds(400, 280)
+    API:SetResizeBounds(f, 400, 280)
     local resizeGrip = CreateFrame("Button", nil, f)
     resizeGrip:SetSize(16, 16)
     resizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
@@ -365,7 +353,7 @@ function Details:Init()
 
     local tabBarBg = tabBar:CreateTexture(nil, "BACKGROUND")
     tabBarBg:SetAllPoints()
-    tabBarBg:SetColorTexture(0.1, 0.1, 0.1, 1)
+    API:SetTextureColor(tabBarBg, 0.1, 0.1, 0.1, 1)
 
     for i, tab in ipairs(TABS) do
         local btn = self:_CreateTabButton(tabBar, tab.label, i, #TABS)
@@ -386,7 +374,7 @@ function Details:Init()
 
     local filterBg = filterRow:CreateTexture(nil, "BACKGROUND")
     filterBg:SetAllPoints()
-    filterBg:SetColorTexture(0.06, 0.06, 0.06, 1)
+    API:SetTextureColor(filterBg, 0.06, 0.06, 0.06, 1)
 
     local filterLbl = filterRow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     filterLbl:SetPoint("LEFT", filterRow, "LEFT", 6, 0)
@@ -422,7 +410,7 @@ function Details:Init()
 
     local colHdrBg = colHdr:CreateTexture(nil, "BACKGROUND")
     colHdrBg:SetAllPoints()
-    colHdrBg:SetColorTexture(0.0, 0.0, 0.0, 0.5)
+    API:SetTextureColor(colHdrBg, 0.0, 0.0, 0.0, 0.5)
 
     -- Static "Item" label
     local itemColLbl = colHdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -442,7 +430,7 @@ function Details:Init()
     div:SetPoint("TOPLEFT",  f, "TOPLEFT",   8, -95)
     div:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, -95)
     div:SetHeight(1)
-    div:SetColorTexture(0.35, 0.35, 0.35, 0.6)
+    API:SetTextureColor(div, 0.35, 0.35, 0.35, 0.6)
 
     -- ── Scroll frame ──────────────────────────────────────────────────
     local scrollFrame = CreateFrame("ScrollFrame", "UGC_DetailsScroll", f,
@@ -463,7 +451,7 @@ function Details:Init()
 
     local sumBg = summaryBar:CreateTexture(nil, "BACKGROUND")
     sumBg:SetAllPoints()
-    sumBg:SetColorTexture(0.05, 0.05, 0.05, 0.9)
+    API:SetTextureColor(sumBg, 0.05, 0.05, 0.05, 0.9)
 
     self._summaryLine1 = summaryBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     self._summaryLine1:SetPoint("TOPLEFT",  summaryBar, "TOPLEFT",  8, -6)
@@ -594,9 +582,9 @@ function Details:Refresh()
 
         -- Alternating bg
         if i % 2 == 0 then
-            row.bg:SetColorTexture(1, 1, 1, 0.03)
+            API:SetTextureColor(row.bg, 1, 1, 1, 0.03)
         else
-            row.bg:SetColorTexture(0, 0, 0, 0)
+            API:SetTextureColor(row.bg, 0, 0, 0, 0)
         end
 
         -- Icon

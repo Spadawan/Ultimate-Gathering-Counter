@@ -16,6 +16,7 @@ local _initialized = false
 -- all bag items during _buildSnapshot(), so the first scan re-seeds the
 -- snapshot without counting anything as gained (avoids "+500 Hochenblume" on login).
 local _firstScanDone = false
+local BAG_INDEX_LAST = math.max(NUM_BAG_SLOTS or 4, 5)
 
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
@@ -42,7 +43,7 @@ end
 -- Build bag snapshot without delta processing (used on first load)
 function Tracker:_buildSnapshot()
     local snapshot = {}
-    for bag = 0, 5 do
+    for bag = 0, BAG_INDEX_LAST do
         local numSlots = C_Container and C_Container.GetContainerNumSlots(bag)
                          or GetContainerNumSlots(bag)
         if numSlots and numSlots > 0 then
@@ -110,7 +111,7 @@ function Tracker:ScanBags()
     local settings    = UGC.DB:GetSettings()
     local newSnapshot = {}
 
-    for bag = 0, 5 do
+    for bag = 0, BAG_INDEX_LAST do
         local numSlots = C_Container and C_Container.GetContainerNumSlots(bag)
                          or GetContainerNumSlots(bag)
         if numSlots and numSlots > 0 then

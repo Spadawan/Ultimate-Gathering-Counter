@@ -5,6 +5,7 @@
 -------------------------------------------------------------------------------
 
 local UGC = _G.UGC
+local API = UGC.API
 
 UGC.Config = {}
 local Config = UGC.Config
@@ -18,14 +19,14 @@ local WIN_HEIGHT = 520
 
 -- Creates a labeled section divider
 local function MakeSection(parent, label, yOff)
-    local bar = CreateFrame("Frame", nil, parent)
+    local bar = API:CreateFrame("Frame", nil, parent)
     bar:SetPoint("TOPLEFT",  parent, "TOPLEFT",  10, yOff)
     bar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -10, yOff)
     bar:SetHeight(18)
 
     local bg = bar:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
-    bg:SetColorTexture(0.18, 0.18, 0.18, 1)
+    API:SetTextureColor(bg, 0.18, 0.18, 0.18, 1)
 
     local fs = bar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fs:SetPoint("LEFT", bar, "LEFT", 8, 0)
@@ -129,7 +130,7 @@ end
 -- Init — called on PLAYER_LOGIN
 -------------------------------------------------------------------------------
 function Config:Init()
-    local f = CreateFrame("Frame", "UGC_Config", UIParent, "BackdropTemplate")
+    local f = API:CreateFrame("Frame", "UGC_Config", UIParent, "BackdropTemplate")
     f:SetSize(WIN_WIDTH, WIN_HEIGHT)
     f:SetFrameStrata("HIGH")
     f:SetFrameLevel(30)
@@ -340,7 +341,7 @@ function Config:Init()
     aucNote:SetJustifyH("LEFT")
 
     local function UpdateAucNote()
-        if C_AddOns.IsAddOnLoaded("Auctionator") then
+        if API:IsAddOnLoaded("Auctionator") then
             aucNote:SetText("|cff33E633Auctionator detected.|r Price data is available.")
         else
             aucNote:SetText("|cffff8800Auctionator not loaded.|r Values will show as \"?\".")
