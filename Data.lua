@@ -8,7 +8,7 @@ local UGC = {}
 _G.UGC = UGC
 
 UGC.ADDON_NAME = "UltimateGatheringCounter"
-UGC.VERSION    = "1.0.0"
+UGC.VERSION    = "1.1.0"
 
 -- Category definitions
 UGC.CATEGORIES = {
@@ -54,6 +54,9 @@ addItems("herbs", {
     [785]    = "Mageroyal",
     [2447]   = "Peacebloom",
     [2449]   = "Earthroot",
+    [2450]   = "Briarthorn",
+    [2452]   = "Swiftthistle",
+    [2453]   = "Bruiseweed",
     [3355]   = "Wild Steelbloom",
     [3356]   = "Kingsblood",
     [3357]   = "Liferoot",
@@ -62,6 +65,7 @@ addItems("herbs", {
     [3818]   = "Fadeleaf",
     [3819]   = "Dragon's Teeth",
     [3820]   = "Stranglekelp",
+    [3821]   = "Goldthorn",
     [4625]   = "Firebloom",
     [8831]   = "Purple Lotus",
     [8836]   = "Arthas' Tears",
@@ -75,6 +79,7 @@ addItems("herbs", {
     [13466]  = "Mountain Silversage",
     [13467]  = "Plaguebloom",
     [13468]  = "Icecap",
+    [13469]  = "Black Lotus",
     -- TBC
     [22785]  = "Felweed",
     [22786]  = "Dreaming Glory",
@@ -159,6 +164,8 @@ addItems("ore", {
     [2770]   = "Copper Ore",
     [2771]   = "Tin Ore",
     [2772]   = "Iron Ore",
+    [2775]   = "Silver Ore",
+    [2776]   = "Gold Ore",
     [3858]   = "Mithril Ore",
     [7911]   = "Truesilver Ore",
     [10620]  = "Thorium Ore",
@@ -213,14 +220,26 @@ addItems("ore", {
 -------------------------------------------------------------------------------
 addItems("fish", {
     -- Classic
+    [6289]   = "Raw Longjaw Mud Snapper",
     [6291]   = "Raw Bristle Whisker Catfish",
-    [6303]   = "Raw Longjaw Mud Snapper",
+    [6303]   = "Raw Slitherskin Mackerel",
     [6308]   = "Raw Brilliant Smallfish",
     [6317]   = "Raw Loch Frenzy",
     [6318]   = "Oily Blackmouth",
     [6358]   = "Firefin Snapper",
     [6361]   = "Raw Rainbow Fin Albacore",
     [6362]   = "Raw Rockscale Cod",
+    [6363]   = "22 Pound Lobster",
+    [6364]   = "32 Pound Grouper",
+    [6522]   = "Deviate Fish",
+    [8365]   = "Raw Mithril Head Trout",
+    [13754]  = "Raw Glossy Mightfish",
+    [13755]  = "Winter Squid",
+    [13756]  = "Raw Summer Bass",
+    [13758]  = "Raw Redgill",
+    [13759]  = "Raw Nightfin Snapper",
+    [13888]  = "Darkclaw Lobster",
+    [13889]  = "Raw Whitescale Salmon",
     [21153]  = "Raw Sagefish",
     [21154]  = "Raw Greater Sagefish",
     -- TBC
@@ -295,6 +314,11 @@ addItems("fish", {
 addItems("leather", {
     -- Classic
     [783]    = "Light Hide",
+    [15417]  = "Devilsaur Leather",
+    [15419]  = "Warbear Leather",
+    [17012]  = "Core Leather",
+    [19767]  = "Primal Bat Leather",
+    [19768]  = "Primal Tiger Leather",
     [2318]   = "Light Leather",
     [2319]   = "Medium Leather",
     [4232]   = "Medium Hide",

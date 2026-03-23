@@ -14,7 +14,6 @@ local WINDOW_HEIGHT = 480
 local ROW_HEIGHT    = 22
 
 -- Quality star texture (same as overlay)
-local STAR_TEX = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star.tga"
 local QUALITY_COLORS = {
     [1] = { 0.80, 0.54, 0.20 },
     [2] = { 0.75, 0.75, 0.75 },
@@ -57,7 +56,7 @@ local function FormatCoin(copper)
 end
 
 local function GetAuctionPrice(itemID)
-    if not C_AddOns.IsAddOnLoaded("Auctionator") then return nil end
+    if not UGC.Compat:IsAddOnLoaded("Auctionator") then return nil end
     if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
         return nil
     end
@@ -84,20 +83,15 @@ function Details:_CreateRow(parent)
     row.icon:SetPoint("LEFT", row, "LEFT", 3, 0)
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality stars — WHITE8X8 masquée par star.tga, superposées sur l'icône
+    -- Quality stars with a Retail mask path and a Classic-safe texture fallback.
     row.qualityStars = {}
     for i = 1, 3 do
-        local s = row:CreateTexture(nil, "OVERLAY")
-        s:SetSize(6, 6)
-        s:SetTexture("Interface\\Buttons\\WHITE8X8")
-        s:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
-        local mask = row:CreateMaskTexture()
-        mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
-        mask:SetSize(6, 6)
-        mask:SetPoint("BOTTOMLEFT", row.icon, "BOTTOMLEFT", (i - 1) * 7, 0)
-        s:AddMaskTexture(mask)
-        s:Hide()
-        row.qualityStars[i] = s
+        row.qualityStars[i] = UGC.Compat:CreateStarTexture(
+            row,
+            "BOTTOMLEFT",
+            row.icon,
+            (i - 1) * 7
+        )
     end
 
     row.nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -301,7 +295,7 @@ end
 -------------------------------------------------------------------------------
 function Details:Init()
     local settings = UGC.DB:GetSettings()
-    local f = CreateFrame("Frame", "UGC_Details", UIParent, "BackdropTemplate")
+    local f = UGC.Compat:CreateBackdropFrame("Frame", "UGC_Details", UIParent)
     f:SetSize(settings.detailsWidth or WINDOW_WIDTH, settings.detailsHeight or WINDOW_HEIGHT)
     f:SetFrameStrata("HIGH")
     f:SetFrameLevel(20)
@@ -324,7 +318,7 @@ function Details:Init()
 
     -- Resize handle
     f:SetResizable(true)
-    f:SetResizeBounds(400, 280)
+    UGC.Compat:SetResizeBounds(f, 400, 280)
     local resizeGrip = CreateFrame("Button", nil, f)
     resizeGrip:SetSize(16, 16)
     resizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)

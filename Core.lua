@@ -116,7 +116,7 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc config|r         Open settings panel")
         print("|cffffd700/ugc reset|r          Reset current session counters")
         print("|cffffd700/ugc help|r           Show this help")
-        if C_AddOns.IsAddOnLoaded("Auctionator") then
+        if UGC.Compat:IsAddOnLoaded("Auctionator") then
             print("|cff33E633Auctionator|r detected — price data available.")
         else
             print("|cffff8800Auctionator|r not loaded — values will show as \"?\".")
