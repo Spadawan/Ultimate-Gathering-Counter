@@ -191,6 +191,26 @@ function Tracker:ScanBags()
 end
 
 -------------------------------------------------------------------------------
+-- Item display quality
+-- Prefer profession reagent quality when the client exposes it, because item
+-- rarity is not the same thing as reagent quality tiers on modern expansions.
+-------------------------------------------------------------------------------
+local function GetDisplayQuality(itemID, itemQuality)
+    if C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo then
+        local ok, reagentQuality = pcall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)
+        if ok and type(reagentQuality) == "number" and reagentQuality > 0 then
+            return reagentQuality
+        end
+    end
+
+    if type(itemQuality) == "number" and itemQuality >= 1 and itemQuality <= 3 then
+        return itemQuality
+    end
+
+    return nil
+end
+
+-------------------------------------------------------------------------------
 -- Dynamic category detection via GetItemInfo class/subclass
 -------------------------------------------------------------------------------
 function Tracker:DetectItemCategory(itemID)
@@ -203,7 +223,7 @@ function Tracker:DetectItemCategory(itemID)
 
     local cat = classMap[subclassID]
     if cat and name and texture then
-        UGC.DB:CacheItem(itemID, name, texture, quality)
+        UGC.DB:CacheItem(itemID, name, texture, GetDisplayQuality(itemID, quality))
     end
     return cat
 end
@@ -214,7 +234,7 @@ end
 function Tracker:RequestItemCache(itemID)
     local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
     if name and texture then
-        UGC.DB:CacheItem(itemID, name, texture, quality or 1)
+        UGC.DB:CacheItem(itemID, name, texture, GetDisplayQuality(itemID, quality))
         -- Update hint in ITEM_DB
         if UGC.ITEM_DB[itemID] then
             UGC.ITEM_DB[itemID].hint = name
@@ -225,7 +245,7 @@ function Tracker:RequestItemCache(itemID)
     C_Timer.After(2.0, function()
         local n, _, q, _, _, _, _, _, _, t = GetItemInfo(itemID)
         if n and t then
-            UGC.DB:CacheItem(itemID, n, t, q or 1)
+            UGC.DB:CacheItem(itemID, n, t, GetDisplayQuality(itemID, q))
             if UGC.ITEM_DB[itemID] then
                 UGC.ITEM_DB[itemID].hint = n
             end
