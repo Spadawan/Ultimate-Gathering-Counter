@@ -9,6 +9,9 @@ local UGC = _G.UGC
 UGC.Tracker = {}
 local Tracker = UGC.Tracker
 
+-- Guard: prevents ScanBags from running before Init() completes
+local _initialized = false
+
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
     startTime   = 0,
@@ -20,11 +23,13 @@ UGC.Session = {
 -- Init
 -------------------------------------------------------------------------------
 function Tracker:Init()
+    _initialized = false  -- block ScanBags during snapshot
     UGC.Session.startTime = GetTime()
     wipe(UGC.Session.items)
     wipe(UGC.Session.bagSnapshot)
     -- Build initial snapshot without recording gains
     self:_buildSnapshot()
+    _initialized = true  -- safe to process bag events from now on
 end
 
 -- Build bag snapshot without delta processing (used on first load)
@@ -94,6 +99,7 @@ end
 -- ScanBags — called on BAG_UPDATE_DELAYED
 -------------------------------------------------------------------------------
 function Tracker:ScanBags()
+    if not _initialized then return end  -- ignore pre-login BAG_UPDATE_DELAYED events
     local settings    = UGC.DB:GetSettings()
     local newSnapshot = {}
 
@@ -228,20 +234,22 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
             local bagCount  = sess.bagCount
             local gained    = sess.gained
 
-            -- Show item if it has been seen this session OR has enough in bag
-            if gained > 0 or bagCount >= minQty then
-                local cached = UGC.DB:GetCachedItem(itemID)
-                local name   = (cached and cached.name) or data.hint or ("Item " .. itemID)
-                local icon   = cached and cached.icon
+            -- Only show items currently in the bag; must also meet quantity threshold
+            if bagCount > 0 and (gained > 0 or bagCount >= minQty) then
+                local cached  = UGC.DB:GetCachedItem(itemID)
+                local name    = (cached and cached.name) or data.hint or ("Item " .. itemID)
+                local icon    = cached and cached.icon
+                local quality = cached and cached.quality or 1
 
                 table.insert(result, {
-                    itemID       = itemID,
-                    name         = name,
-                    icon         = icon,
-                    category     = cat,
-                    bagCount     = bagCount,
+                    itemID        = itemID,
+                    name          = name,
+                    icon          = icon,
+                    quality       = quality,
+                    category      = cat,
+                    bagCount      = bagCount,
                     sessionGained = gained,
-                    hourlyRate   = self:GetHourlyRate(itemID),
+                    hourlyRate    = self:GetHourlyRate(itemID),
                 })
             end
         end

@@ -24,6 +24,16 @@ local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
 
+-- WoW item quality colors (nil = no border for common/white)
+local QUALITY_COLORS = {
+    [0] = { 0.62, 0.62, 0.62 },  -- Poor (gray)
+    [1] = nil,                    -- Common (no border)
+    [2] = { 0.12, 1.00, 0.00 },  -- Uncommon (green)
+    [3] = { 0.00, 0.44, 0.87 },  -- Rare (blue)
+    [4] = { 0.64, 0.21, 0.93 },  -- Epic (purple)
+    [5] = { 1.00, 0.50, 0.00 },  -- Legendary (orange)
+}
+
 -------------------------------------------------------------------------------
 -- Coin formatter
 -------------------------------------------------------------------------------
@@ -76,6 +86,14 @@ local function CreateItemRow(parent)
     row.icon = row.iconBtn:CreateTexture(nil, "ARTWORK")
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    -- Quality color dot (bottom-right corner of icon, hidden by default)
+    row.qualityDot = row.iconBtn:CreateTexture(nil, "OVERLAY")
+    row.qualityDot:SetSize(6, 6)
+    row.qualityDot:SetPoint("BOTTOMRIGHT", row.iconBtn, "BOTTOMRIGHT", 0, 0)
+    row.qualityDot:SetColorTexture(1, 1, 1, 1)
+    row.qualityDot:Hide()
+
     row.iconBtn:SetScript("OnEnter", function(self)
         if row.itemID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -117,8 +135,9 @@ end
 -- Section header (one per category group)
 local function CreateSectionHeader(parent, cat)
     local catData = UGC.CATEGORIES[cat]
-    local hdr = CreateFrame("Frame", nil, parent)
+    local hdr = CreateFrame("Button", nil, parent)
     hdr:SetHeight(HDR_HEIGHT)
+    hdr:RegisterForClicks("LeftButtonUp")
 
     hdr.bg = hdr:CreateTexture(nil, "BACKGROUND")
     hdr.bg:SetAllPoints()
@@ -128,13 +147,40 @@ local function CreateSectionHeader(parent, cat)
         catData.color.b * 0.25,
         0.7)
 
+    -- Collapse/expand arrow indicator
+    hdr.arrow = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    hdr.arrow:SetPoint("LEFT", hdr, "LEFT", 6, 0)
+    hdr.arrow:SetTextColor(0.8, 0.8, 0.8)
+    hdr.arrow:SetText("▼")
+
     hdr.label = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hdr.label:SetPoint("LEFT", hdr, "LEFT", 8, 0)
+    hdr.label:SetPoint("LEFT", hdr, "LEFT", 20, 0)
     hdr.label:SetTextColor(catData.color.r, catData.color.g, catData.color.b)
 
     hdr.count = hdr:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     hdr.count:SetPoint("RIGHT", hdr, "RIGHT", -8, 0)
     hdr.count:SetTextColor(0.75, 0.75, 0.75)
+
+    -- Hover highlight
+    hdr:SetScript("OnEnter", function(self)
+        self.bg:SetColorTexture(
+            catData.color.r * 0.4,
+            catData.color.g * 0.4,
+            catData.color.b * 0.4, 0.85)
+    end)
+    hdr:SetScript("OnLeave", function(self)
+        self.bg:SetColorTexture(
+            catData.color.r * 0.25,
+            catData.color.g * 0.25,
+            catData.color.b * 0.25, 0.7)
+    end)
+
+    -- Click toggles collapse state and refreshes
+    hdr:SetScript("OnClick", function(self)
+        local s = UGC.DB:GetSettings()
+        s.collapsedCategories[self._cat] = not s.collapsedCategories[self._cat]
+        Overlay:Refresh()
+    end)
 
     return hdr
 end
@@ -303,6 +349,28 @@ function Overlay:Init()
         f:Hide()
     end
 
+    -- Fade to 50% opacity when mouse is not over the overlay (checked at ~10 Hz)
+    local _fadeTimer = 0
+    f:SetScript("OnUpdate", function(self, elapsed)
+        _fadeTimer = _fadeTimer + elapsed
+        if _fadeTimer < 0.1 then return end
+        _fadeTimer = 0
+        local s = UGC.DB:GetSettings()
+        if s.fadeWhenUnfocused then
+            -- IsMouseOver covers the frame and all child frames
+            self:SetAlpha((self:IsMouseOver() or GameTooltip:IsShown()) and 1.0 or 0.5)
+        else
+            self:SetAlpha(1.0)
+        end
+    end)
+
+    -- Refresh per-hour rates every 30 s regardless of bag events
+    C_Timer.NewTicker(30, function()
+        if Overlay.frame and Overlay.frame:IsShown() then
+            Overlay:Refresh()
+        end
+    end)
+
     self:Refresh()
 end
 
@@ -386,7 +454,11 @@ function Overlay:Refresh()
                 self.headers[hdrIdx] = hdr
             end
 
-            local catData = UGC.CATEGORIES[currentCat]
+            hdr._cat = currentCat  -- used by the OnClick handler
+
+            local catData   = UGC.CATEGORIES[currentCat]
+            local collapsed = settings.collapsedCategories[currentCat]
+            hdr.arrow:SetText(collapsed and "▶" or "▼")
             hdr.label:SetText(catData.label:upper())
             hdr.label:SetTextColor(catData.color.r, catData.color.g, catData.color.b)
             hdr.bg:SetColorTexture(
@@ -398,6 +470,11 @@ function Overlay:Refresh()
             hdr:SetWidth(self.content:GetWidth())
             hdr:Show()
             yOffset = yOffset + HDR_HEIGHT + 1
+        end
+
+        -- Skip row rendering for collapsed categories
+        if settings.collapsedCategories[item.category] then
+            goto continue
         end
 
         -- ── Item row ───────────────────────────────────────────────
@@ -421,6 +498,15 @@ function Overlay:Refresh()
 
         -- Icon
         row.icon:SetTexture(item.icon or ICON_UNKNOWN)
+
+        -- Quality dot (colored indicator for non-common items)
+        local qc = QUALITY_COLORS[item.quality or 1]
+        if qc then
+            row.qualityDot:SetColorTexture(qc[1], qc[2], qc[3], 1)
+            row.qualityDot:Show()
+        else
+            row.qualityDot:Hide()
+        end
 
         -- Name
         row.nameText:SetText(item.name)
@@ -464,6 +550,8 @@ function Overlay:Refresh()
 
         row:Show()
         yOffset = yOffset + ROW_HEIGHT + 1
+
+        ::continue::
     end
 
     -- ── Empty state ────────────────────────────────────────────────

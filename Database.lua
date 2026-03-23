@@ -21,8 +21,10 @@ local DEFAULTS = {
         showCategories   = { herbs = true, ore = true, fish = true, leather = true },
         showPerHourRates = true,
         showValues       = true,
-        minimumQty       = 0,
-        chatLootDetect   = true,
+        minimumQty          = 0,
+        chatLootDetect      = true,
+        collapsedCategories = {},   -- [catKey] = true when collapsed
+        fadeWhenUnfocused   = true, -- fade overlay to 50% when mouse is not over it
     },
     allTime        = {},
     weekly         = { weekStart = 0 },

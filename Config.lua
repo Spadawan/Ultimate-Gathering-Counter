@@ -10,7 +10,7 @@ UGC.Config = {}
 local Config = UGC.Config
 
 local WIN_WIDTH  = 370
-local WIN_HEIGHT = 490
+local WIN_HEIGHT = 520
 
 -------------------------------------------------------------------------------
 -- UI helpers
@@ -219,6 +219,17 @@ function Config:Init()
         function(v)
             s.minimumQty = v
             if UGC.Overlay then UGC.Overlay:Refresh() end
+        end)
+    yOff = yOff - 4
+
+    -- Fade overlay when unfocused
+    _, yOff = MakeCheckbox(f, "Fade overlay to 50% when mouse is not over it", yOff,
+        function() return s.fadeWhenUnfocused end,
+        function(v)
+            s.fadeWhenUnfocused = v
+            if UGC.Overlay and UGC.Overlay.frame then
+                UGC.Overlay.frame:SetAlpha(v and 0.5 or 1.0)
+            end
         end)
     yOff = yOff - 4
 
