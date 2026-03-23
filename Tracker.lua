@@ -16,12 +16,14 @@ local _initialized = false
 -- all bag items during _buildSnapshot(), so the first scan re-seeds the
 -- snapshot without counting anything as gained (avoids "+500 Hochenblume" on login).
 local _firstScanDone = false
+local LOOT_CONFIRM_WINDOW = 15
 
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
     startTime    = 0,
     items        = {},        -- [itemID] = { gained = N, bagCount = N }
     bagSnapshot  = {},        -- [itemID] = count (result of last bag scan)
+    pendingLoot  = {},        -- [itemID] = { count = N, category = "herbs", timestamp = T }
     gatherCount  = { herbs = 0, ore = 0, fish = 0, leather = 0 }, -- gathering actions this session
 }
 
@@ -34,6 +36,7 @@ function Tracker:Init()
     UGC.Session.startTime = GetTime()
     wipe(UGC.Session.items)
     wipe(UGC.Session.bagSnapshot)
+    wipe(UGC.Session.pendingLoot)
     -- Build initial snapshot without recording gains
     self:_buildSnapshot()
     _initialized = true  -- safe to process bag events from now on
@@ -86,8 +89,9 @@ function Tracker:_buildSnapshot()
     UGC.Session.bagSnapshot = snapshot
 end
 
-function Tracker:RebaselineBags()
+function Tracker:RebaselineBags(keepFirstScanState)
     local snapshot = self:_captureSnapshot()
+    wipe(UGC.Session.pendingLoot)
 
     for itemID, count in pairs(snapshot) do
         if not UGC.Session.items[itemID] then
@@ -103,7 +107,10 @@ function Tracker:RebaselineBags()
     end
 
     UGC.Session.bagSnapshot = snapshot
-    _firstScanDone = true
+    -- During initial login / UI reload, item data can still be streaming in.
+    -- Allow one more BAG_UPDATE_DELAYED pass to re-seed the snapshot without
+    -- recording gains so existing bag contents are never added to session/all-time.
+    _firstScanDone = keepFirstScanState and true or false
 end
 
 -------------------------------------------------------------------------------
@@ -113,11 +120,73 @@ function Tracker:_getSlotInfo(bag, slot)
     return UGC.Compat:GetContainerItemInfo(bag, slot)
 end
 
+function Tracker:_clearExpiredPendingLoot(now)
+    now = now or GetTime()
+    for itemID, pending in pairs(UGC.Session.pendingLoot) do
+        if not pending or (now - (pending.timestamp or 0)) > LOOT_CONFIRM_WINDOW then
+            UGC.Session.pendingLoot[itemID] = nil
+        end
+    end
+end
+
+function Tracker:_consumePendingLoot(itemID, delta, now)
+    self:_clearExpiredPendingLoot(now)
+
+    local pending = UGC.Session.pendingLoot[itemID]
+    if not pending or not pending.count or pending.count <= 0 then
+        return 0, nil
+    end
+
+    local confirmed = math.min(delta, pending.count)
+    pending.count = pending.count - confirmed
+    local category = pending.category
+
+    if pending.count <= 0 then
+        UGC.Session.pendingLoot[itemID] = nil
+    end
+
+    return confirmed, category
+end
+
+function Tracker:_extractLootQuantity(msg, itemLink)
+    if not msg or not itemLink then return 1 end
+
+    local quotedLink = itemLink:gsub("([%%%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+    local qty = msg:match(quotedLink .. "%s*[xX×](%d+)")
+            or msg:match("[xX×](%d+)%s*%p?$")
+            or msg:match("(%d+)%s*[xX×]%s*" .. quotedLink)
+
+    qty = tonumber(qty)
+    if qty and qty > 0 then
+        return qty
+    end
+
+    return 1
+end
+
+function Tracker:_queuePendingLoot(itemID, quantity, category)
+    if not itemID or not category or quantity <= 0 then return end
+
+    local pending = UGC.Session.pendingLoot[itemID]
+    if pending and pending.category == category then
+        pending.count = pending.count + quantity
+        pending.timestamp = GetTime()
+        return
+    end
+
+    UGC.Session.pendingLoot[itemID] = {
+        count = quantity,
+        category = category,
+        timestamp = GetTime(),
+    }
+end
+
 -------------------------------------------------------------------------------
 -- ScanBags — called on BAG_UPDATE_DELAYED
 -------------------------------------------------------------------------------
 function Tracker:ScanBags()
     if not _initialized then return end  -- ignore pre-login BAG_UPDATE_DELAYED events
+    local now = GetTime()
     local newSnapshot = self:_captureSnapshot()
 
     -- First scan after login: re-seed snapshot without recording gains.
@@ -142,15 +211,17 @@ function Tracker:ScanBags()
         local oldCount = oldSnapshot[itemID] or 0
         local delta    = newCount - oldCount
         if delta > 0 then
-            -- New items gained
-            if not UGC.Session.items[itemID] then
-                UGC.Session.items[itemID] = { gained = 0, bagCount = 0 }
+            local confirmedDelta, cat = self:_consumePendingLoot(itemID, delta, now)
+            if confirmedDelta > 0 then
+                if not UGC.Session.items[itemID] then
+                    UGC.Session.items[itemID] = { gained = 0, bagCount = 0 }
+                end
+                UGC.Session.items[itemID].gained = UGC.Session.items[itemID].gained + confirmedDelta
+                UGC.DB:RecordGain(itemID, confirmedDelta)
+                if cat then
+                    gainedCats[cat] = true
+                end
             end
-            UGC.Session.items[itemID].gained = UGC.Session.items[itemID].gained + delta
-            UGC.DB:RecordGain(itemID, delta)
-            -- Track which category had a gain
-            local cat = UGC.ITEM_DB[itemID] and UGC.ITEM_DB[itemID].category
-            if cat then gainedCats[cat] = true end
         end
     end
     -- One gathering action per category with gains in this scan
@@ -318,7 +389,6 @@ end
 -------------------------------------------------------------------------------
 function Tracker:ParseLootMessage(msg)
     if not msg then return end
-    if not UGC.DB:GetSettings().chatLootDetect then return end
 
     local itemLink = msg:match("|H(item:[^|]+)|h")
     if not itemLink then return end
@@ -326,20 +396,26 @@ function Tracker:ParseLootMessage(msg)
     local itemID = tonumber(itemLink:match("item:(%d+)"))
     if not itemID then return end
 
-    -- If already tracked, nothing to do
-    if UGC.ITEM_DB[itemID] then return end
-
-    -- Try to detect and register for future bag scans
-    local cat = self:DetectItemCategory(itemID)
-    if cat then
-        local settings = UGC.DB:GetSettings()
-        if settings.showCategories[cat] then
-            local cached = UGC.DB:GetCachedItem(itemID)
-            UGC.ITEM_DB[itemID] = {
-                category = cat,
-                hint     = cached and cached.name or ("Item " .. itemID),
-            }
+    local settings = UGC.DB:GetSettings()
+    local cat
+    if UGC.ITEM_DB[itemID] then
+        cat = UGC.ITEM_DB[itemID].category
+    elseif settings.chatLootDetect then
+        -- Try to detect and register for future bag scans
+        cat = self:DetectItemCategory(itemID)
+        if cat then
+            if settings.showCategories[cat] then
+                local cached = UGC.DB:GetCachedItem(itemID)
+                UGC.ITEM_DB[itemID] = {
+                    category = cat,
+                    hint     = cached and cached.name or ("Item " .. itemID),
+                }
+            end
         end
+    end
+
+    if cat then
+        self:_queuePendingLoot(itemID, self:_extractLootQuantity(msg, itemLink), cat)
     end
 end
 
@@ -349,6 +425,7 @@ end
 function Tracker:ResetSession()
     UGC.DB:ResetSession()
     wipe(UGC.Session.gatherCount)
+    wipe(UGC.Session.pendingLoot)
     self:_buildSnapshot()
 end
 
