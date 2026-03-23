@@ -472,86 +472,81 @@ function Overlay:Refresh()
             yOffset = yOffset + HDR_HEIGHT + 1
         end
 
-        -- Skip row rendering for collapsed categories
-        if settings.collapsedCategories[item.category] then
-            goto continue
-        end
-
-        -- ── Item row ───────────────────────────────────────────────
-        rowIdx = rowIdx + 1
-        local row = self.rows[rowIdx]
-        if not row then
-            row = CreateItemRow(self.content)
-            self.rows[rowIdx] = row
-        end
-
-        row.itemID = item.itemID
-        row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
-        row:SetWidth(self.content:GetWidth())
-
-        -- Alternating row background
-        if rowNum % 2 == 0 then
-            row.bg:SetColorTexture(1, 1, 1, 0.04)
-        else
-            row.bg:SetColorTexture(0, 0, 0, 0)
-        end
-
-        -- Icon
-        row.icon:SetTexture(item.icon or ICON_UNKNOWN)
-
-        -- Quality dot (colored indicator for non-common items)
-        local qc = QUALITY_COLORS[item.quality or 1]
-        if qc then
-            row.qualityDot:SetColorTexture(qc[1], qc[2], qc[3], 1)
-            row.qualityDot:Show()
-        else
-            row.qualityDot:Hide()
-        end
-
-        -- Name
-        row.nameText:SetText(item.name)
-        row.nameText:SetTextColor(1, 1, 1)
-
-        -- Bag + session gain
-        if item.sessionGained > 0 then
-            row.bagText:SetText(string.format(
-                "|cff00dd00+%d|r |cff888888(%d)|r",
-                item.sessionGained, item.bagCount))
-        elseif item.bagCount > 0 then
-            row.bagText:SetText(tostring(item.bagCount))
-        else
-            row.bagText:SetText("|cff555555—|r")
-        end
-
-        -- Per-hour rate
-        if settings.showPerHourRates and item.hourlyRate >= 0.5 then
-            row.rateText:SetText(string.format("%.0f/h", item.hourlyRate))
-            row.rateText:Show()
-        else
-            row.rateText:SetText("")
-        end
-
-        -- Value (price × bag count)
-        if settings.showValues then
-            local unitPrice = GetAuctionPrice(item.itemID)
-            if unitPrice and unitPrice > 0 and item.bagCount > 0 then
-                local itemCopper = unitPrice * item.bagCount
-                totalCopper = totalCopper + itemCopper
-                row.valueText:SetText(FormatCoin(itemCopper))
-            elseif unitPrice and unitPrice > 0 then
-                row.valueText:SetText("|cff555555—|r")
-            else
-                row.valueText:SetText("|cffff8800?|r")
-                hasUnknown = true
+        -- ── Item row (skipped if category is collapsed) ────────────
+        if not settings.collapsedCategories[item.category] then
+            rowIdx = rowIdx + 1
+            local row = self.rows[rowIdx]
+            if not row then
+                row = CreateItemRow(self.content)
+                self.rows[rowIdx] = row
             end
-        else
-            row.valueText:SetText("")
+
+            row.itemID = item.itemID
+            row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
+            row:SetWidth(self.content:GetWidth())
+
+            -- Alternating row background
+            if rowNum % 2 == 0 then
+                row.bg:SetColorTexture(1, 1, 1, 0.04)
+            else
+                row.bg:SetColorTexture(0, 0, 0, 0)
+            end
+
+            -- Icon
+            row.icon:SetTexture(item.icon or ICON_UNKNOWN)
+
+            -- Quality dot (colored indicator for non-common items)
+            local qc = QUALITY_COLORS[item.quality or 1]
+            if qc then
+                row.qualityDot:SetColorTexture(qc[1], qc[2], qc[3], 1)
+                row.qualityDot:Show()
+            else
+                row.qualityDot:Hide()
+            end
+
+            -- Name
+            row.nameText:SetText(item.name)
+            row.nameText:SetTextColor(1, 1, 1)
+
+            -- Bag + session gain
+            if item.sessionGained > 0 then
+                row.bagText:SetText(string.format(
+                    "|cff00dd00+%d|r |cff888888(%d)|r",
+                    item.sessionGained, item.bagCount))
+            elseif item.bagCount > 0 then
+                row.bagText:SetText(tostring(item.bagCount))
+            else
+                row.bagText:SetText("|cff555555—|r")
+            end
+
+            -- Per-hour rate
+            if settings.showPerHourRates and item.hourlyRate >= 0.5 then
+                row.rateText:SetText(string.format("%.0f/h", item.hourlyRate))
+                row.rateText:Show()
+            else
+                row.rateText:SetText("")
+            end
+
+            -- Value (price × bag count)
+            if settings.showValues then
+                local unitPrice = GetAuctionPrice(item.itemID)
+                if unitPrice and unitPrice > 0 and item.bagCount > 0 then
+                    local itemCopper = unitPrice * item.bagCount
+                    totalCopper = totalCopper + itemCopper
+                    row.valueText:SetText(FormatCoin(itemCopper))
+                elseif unitPrice and unitPrice > 0 then
+                    row.valueText:SetText("|cff555555—|r")
+                else
+                    row.valueText:SetText("|cffff8800?|r")
+                    hasUnknown = true
+                end
+            else
+                row.valueText:SetText("")
+            end
+
+            row:Show()
+            yOffset = yOffset + ROW_HEIGHT + 1
         end
-
-        row:Show()
-        yOffset = yOffset + ROW_HEIGHT + 1
-
-        ::continue::
     end
 
     -- ── Empty state ────────────────────────────────────────────────
