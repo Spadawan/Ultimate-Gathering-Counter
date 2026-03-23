@@ -39,9 +39,10 @@ function Tracker:Init()
     _initialized = true  -- safe to process bag events from now on
 end
 
--- Build bag snapshot without delta processing (used on first load)
-function Tracker:_buildSnapshot()
+function Tracker:_captureSnapshot()
+    local settings = UGC.DB:GetSettings()
     local snapshot = {}
+
     for bag = 0, 5 do
         local numSlots = C_Container and C_Container.GetContainerNumSlots(bag)
                          or GetContainerNumSlots(bag)
@@ -51,34 +52,59 @@ function Tracker:_buildSnapshot()
                 if itemID then
                     if UGC.ITEM_DB[itemID] then
                         snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
+                        if not UGC.DB:GetCachedItem(itemID) then
+                            self:RequestItemCache(itemID)
+                        end
                     else
                         -- Attempt dynamic detection without recording
                         local cat = self:DetectItemCategory(itemID)
-                        if cat then
-                            local settings = UGC.DB:GetSettings()
-                            if settings.showCategories[cat] then
-                                local cached = UGC.DB:GetCachedItem(itemID)
-                                UGC.ITEM_DB[itemID] = {
-                                    category = cat,
-                                    hint     = cached and cached.name or ("Item "..itemID),
-                                }
-                                snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
-                            end
+                        if cat and settings.showCategories[cat] then
+                            local cached = UGC.DB:GetCachedItem(itemID)
+                            UGC.ITEM_DB[itemID] = {
+                                category = cat,
+                                hint     = cached and cached.name or ("Item " .. itemID),
+                            }
+                            snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
+                            self:RequestItemCache(itemID)
                         end
-                    end
-                    -- Pre-cache metadata
-                    if UGC.ITEM_DB[itemID] and not UGC.DB:GetCachedItem(itemID) then
-                        self:RequestItemCache(itemID)
                     end
                 end
             end
         end
     end
+
+    return snapshot
+end
+
+-- Build bag snapshot without delta processing (used on first load)
+function Tracker:_buildSnapshot()
+    local snapshot = self:_captureSnapshot()
+
     -- Seed session bag counts
     for itemID, count in pairs(snapshot) do
         UGC.Session.items[itemID] = { gained = 0, bagCount = count }
     end
     UGC.Session.bagSnapshot = snapshot
+end
+
+function Tracker:RebaselineBags()
+    local snapshot = self:_captureSnapshot()
+
+    for itemID, count in pairs(snapshot) do
+        if not UGC.Session.items[itemID] then
+            UGC.Session.items[itemID] = { gained = 0, bagCount = 0 }
+        end
+        UGC.Session.items[itemID].bagCount = count
+    end
+
+    for itemID, data in pairs(UGC.Session.items) do
+        if data then
+            data.bagCount = snapshot[itemID] or 0
+        end
+    end
+
+    UGC.Session.bagSnapshot = snapshot
+    _firstScanDone = true
 end
 
 -------------------------------------------------------------------------------
@@ -107,38 +133,7 @@ end
 -------------------------------------------------------------------------------
 function Tracker:ScanBags()
     if not _initialized then return end  -- ignore pre-login BAG_UPDATE_DELAYED events
-    local settings    = UGC.DB:GetSettings()
-    local newSnapshot = {}
-
-    for bag = 0, 5 do
-        local numSlots = C_Container and C_Container.GetContainerNumSlots(bag)
-                         or GetContainerNumSlots(bag)
-        if numSlots and numSlots > 0 then
-            for slot = 1, numSlots do
-                local itemID, stackCount = self:_getSlotInfo(bag, slot)
-                if itemID then
-                    if UGC.ITEM_DB[itemID] then
-                        newSnapshot[itemID] = (newSnapshot[itemID] or 0) + stackCount
-                        if not UGC.DB:GetCachedItem(itemID) then
-                            self:RequestItemCache(itemID)
-                        end
-                    else
-                        -- Dynamic detection for unknown items
-                        local cat = self:DetectItemCategory(itemID)
-                        if cat and settings.showCategories[cat] then
-                            local cached = UGC.DB:GetCachedItem(itemID)
-                            UGC.ITEM_DB[itemID] = {
-                                category = cat,
-                                hint     = cached and cached.name or ("Item "..itemID),
-                            }
-                            newSnapshot[itemID] = (newSnapshot[itemID] or 0) + stackCount
-                            self:RequestItemCache(itemID)
-                        end
-                    end
-                end
-            end
-        end
-    end
+    local newSnapshot = self:_captureSnapshot()
 
     -- First scan after login: re-seed snapshot without recording gains.
     -- _buildSnapshot() may have missed items whose GetItemInfo() wasn't ready yet;
