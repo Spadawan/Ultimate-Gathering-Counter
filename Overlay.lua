@@ -26,7 +26,6 @@ local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
 local ICON_ADDON   = "Interface\\Icons\\Ability_Tracking"  -- icône addon (tracking, dispo Classic+Retail)
 
 -- Quality star texture (black TGA, colored via SetVertexColor)
-local STAR_TEX = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star.tga"
 local QUALITY_COLORS = {
     [1] = { 0.80, 0.54, 0.20 },  -- bronze
     [2] = { 0.75, 0.75, 0.75 },  -- argent
@@ -56,7 +55,7 @@ end
 -- Auctionator price helper (returns copper or nil)
 -------------------------------------------------------------------------------
 local function GetAuctionPrice(itemID)
-    if not C_AddOns.IsAddOnLoaded("Auctionator") then return nil end
+    if not UGC.Compat:IsAddOnLoaded("Auctionator") then return nil end
     if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
         return nil
     end
@@ -87,24 +86,15 @@ local function CreateItemRow(parent)
     row.icon:SetAllPoints()
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- Quality stars — WHITE8X8 (base blanche) masquée par star.tga, teintée via SetVertexColor
-    -- Mask positionné explicitement (même ancre que la texture) pour garantir l'alignement.
-    -- Stars superposées sur l'icône (BOTTOMLEFT de l'icône, layer OVERLAY).
+    -- Quality stars with a Retail mask path and a Classic-safe texture fallback.
     row.qualityStars = {}
     for i = 1, 3 do
-        -- Base blanche (teintable via SetVertexColor)
-        local s = row.iconBtn:CreateTexture(nil, "OVERLAY")
-        s:SetSize(6, 6)
-        s:SetTexture("Interface\\Buttons\\WHITE8X8")
-        s:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
-        -- Masque : découpe la forme de l'étoile (canal alpha du TGA)
-        local mask = row.iconBtn:CreateMaskTexture()
-        mask:SetTexture(STAR_TEX, "CLAMPTOBLACK", "CLAMPTOBLACK")
-        mask:SetSize(6, 6)
-        mask:SetPoint("BOTTOMLEFT", row.iconBtn, "BOTTOMLEFT", (i - 1) * 7, 0)
-        s:AddMaskTexture(mask)
-        s:Hide()
-        row.qualityStars[i] = s
+        row.qualityStars[i] = UGC.Compat:CreateStarTexture(
+            row.iconBtn,
+            "BOTTOMLEFT",
+            row.iconBtn,
+            (i - 1) * 7
+        )
     end
 
     row.iconBtn:SetScript("OnEnter", function(self)
@@ -204,7 +194,7 @@ end
 function Overlay:Init()
     local settings = UGC.DB:GetSettings()
 
-    local f = CreateFrame("Frame", "UGC_Overlay", UIParent, "BackdropTemplate")
+    local f = UGC.Compat:CreateBackdropFrame("Frame", "UGC_Overlay", UIParent)
     f:SetFrameStrata("MEDIUM")
     f:SetFrameLevel(10)
     f:SetSize(OVERLAY_WIDTH, settings.overlayHeight or OVERLAY_HEIGHT)
@@ -241,7 +231,7 @@ function Overlay:Init()
 
     -- Resize handle (bottom-right corner)
     f:SetResizable(true)
-    f:SetResizeBounds(OVERLAY_WIDTH, MIN_HEIGHT)
+    UGC.Compat:SetResizeBounds(f, OVERLAY_WIDTH, MIN_HEIGHT, OVERLAY_WIDTH, MAX_HEIGHT)
     local resizeGrip = CreateFrame("Button", nil, f)
     resizeGrip:SetSize(16, 16)
     resizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)

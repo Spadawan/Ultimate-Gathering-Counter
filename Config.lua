@@ -129,7 +129,7 @@ end
 -- Init — called on PLAYER_LOGIN
 -------------------------------------------------------------------------------
 function Config:Init()
-    local f = CreateFrame("Frame", "UGC_Config", UIParent, "BackdropTemplate")
+    local f = UGC.Compat:CreateBackdropFrame("Frame", "UGC_Config", UIParent)
     f:SetSize(WIN_WIDTH, WIN_HEIGHT)
     f:SetFrameStrata("HIGH")
     f:SetFrameLevel(30)
@@ -350,7 +350,7 @@ function Config:Init()
     aucNote:SetJustifyH("LEFT")
 
     local function UpdateAucNote()
-        if C_AddOns.IsAddOnLoaded("Auctionator") then
+        if UGC.Compat:IsAddOnLoaded("Auctionator") then
             aucNote:SetText("|cff33E633Auctionator detected.|r Price data is available.")
         else
             aucNote:SetText("|cffff8800Auctionator not loaded.|r Values will show as \"?\".")

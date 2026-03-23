@@ -87,7 +87,7 @@ function DB:Init()
     end
 
     -- Reset stale daily/weekly data based on server time
-    local now      = GetServerTime()
+    local now      = UGC.Compat:GetServerTime()
     local dayStart = now - (now % 86400)
     local wday     = tonumber(date("%w", now)) -- 0 = Sunday, 1 = Monday …
     local daysSinceMon = (wday == 0) and 6 or (wday - 1)
@@ -143,7 +143,7 @@ function DB:_ensureHourlyBucket(now)
 end
 
 function DB:TickHourlyBucket(itemID, delta)
-    local bucket = self:_ensureHourlyBucket(GetServerTime())
+    local bucket = self:_ensureHourlyBucket(UGC.Compat:GetServerTime())
     local id = tostring(itemID)
     bucket.items[id] = (bucket.items[id] or 0) + delta
 end
@@ -154,7 +154,7 @@ end
 function DB:RecordGain(itemID, delta)
     if not delta or delta <= 0 then return end
     local id  = tostring(itemID)
-    local now = GetServerTime()
+    local now = UGC.Compat:GetServerTime()
 
     -- All-time
     if not UGC_DB.allTime[id] then
@@ -198,7 +198,7 @@ function DB:GetDaily(itemID)
 end
 
 function DB:GetLastHour(itemID)
-    local now    = GetServerTime()
+    local now    = UGC.Compat:GetServerTime()
     local cutoff = now - 3600
     local id     = tostring(itemID)
     local total  = 0
@@ -284,7 +284,7 @@ function DB:CacheItem(itemID, name, icon, quality)
         name     = name,
         icon     = icon,
         quality  = quality,  -- nil if not yet loaded; shown only when known
-        cachedAt = GetServerTime(),
+        cachedAt = UGC.Compat:GetServerTime(),
     }
 end
 

@@ -44,8 +44,7 @@ function Tracker:_captureSnapshot()
     local snapshot = {}
 
     for bag = 0, 5 do
-        local numSlots = C_Container and C_Container.GetContainerNumSlots(bag)
-                         or GetContainerNumSlots(bag)
+        local numSlots = UGC.Compat:GetContainerNumSlots(bag)
         if numSlots and numSlots > 0 then
             for slot = 1, numSlots do
                 local itemID, stackCount = self:_getSlotInfo(bag, slot)
@@ -111,21 +110,7 @@ end
 -- Bag slot helper (abstracts old/new Container API)
 -------------------------------------------------------------------------------
 function Tracker:_getSlotInfo(bag, slot)
-    if C_Container then
-        local info = C_Container.GetContainerItemInfo(bag, slot)
-        if info and info.itemID then
-            return info.itemID, info.stackCount or 1
-        end
-    else
-        local _, stackCount, _, _, _, _, itemLink = GetContainerItemInfo(bag, slot)
-        if itemLink then
-            local itemID = tonumber(itemLink:match("|Hitem:(%d+)"))
-            if itemID then
-                return itemID, stackCount or 1
-            end
-        end
-    end
-    return nil, 0
+    return UGC.Compat:GetContainerItemInfo(bag, slot)
 end
 
 -------------------------------------------------------------------------------
@@ -191,11 +176,9 @@ end
 -- rarity is not the same thing as reagent quality tiers on modern expansions.
 -------------------------------------------------------------------------------
 local function GetDisplayQuality(itemID, itemQuality)
-    if C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo then
-        local ok, reagentQuality = pcall(C_TradeSkillUI.GetItemReagentQualityByItemInfo, itemID)
-        if ok and type(reagentQuality) == "number" and reagentQuality > 0 then
-            return reagentQuality
-        end
+    local reagentQuality = UGC.Compat:GetReagentQuality(itemID)
+    if type(reagentQuality) == "number" and reagentQuality > 0 then
+        return reagentQuality
     end
 
     if type(itemQuality) == "number" and itemQuality >= 1 and itemQuality <= 3 then
@@ -209,14 +192,8 @@ end
 -- Dynamic category detection via GetItemInfo class/subclass
 -------------------------------------------------------------------------------
 function Tracker:DetectItemCategory(itemID)
-    local name, _, quality, _, _, _, _, _, _, texture, _, classID, subclassID =
-        GetItemInfo(itemID)
-    if not classID then return nil end
-
-    local classMap = UGC.SUBCLASS_MAP[classID]
-    if not classMap then return nil end
-
-    local cat = classMap[subclassID]
+    local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
+    local cat = UGC.Compat:GetItemCategoryFromInfo(itemID)
     if cat and name and texture then
         UGC.DB:CacheItem(itemID, name, texture, GetDisplayQuality(itemID, quality))
     end
