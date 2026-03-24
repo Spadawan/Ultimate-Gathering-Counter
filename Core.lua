@@ -126,7 +126,7 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc hide|r           Hide overlay")
         print("|cffffd700/ugc details|r        Open statistics window")
         print("|cffffd700/ugc config|r         Open settings panel")
-        print("|cffffd700/ugc classement|r     Open details/community leaderboard")
+        print("|cffffd700/ugc leaderboard|r    Open community leaderboard tab")
         print("|cffffd700/ugc reset|r          Reset current session counters")
         print("|cffffd700/ugc help|r           Show this help")
         if UGC.Compat:IsAddOnLoaded("Auctionator") then

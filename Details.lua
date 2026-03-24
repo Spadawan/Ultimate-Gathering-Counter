@@ -30,7 +30,7 @@ local TABS = {
     { key = "weekly",   label = "This Week" },
     { key = "daily",    label = "Today"     },
     { key = "lastHour", label = "Last Hour" },
-    { key = "leaderboard", label = "Classement" },
+    { key = "leaderboard", label = "Leaderboard" },
 }
 
 local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -156,6 +156,7 @@ function Details:_CreateRow(parent)
     row.pctText:SetWidth(80)
     row.pctText:SetJustifyH("RIGHT")
     row.pctText:SetTextColor(0.55, 0.55, 0.55)
+    row.pctText:SetWordWrap(false)
 
     row:SetScript("OnEnter", function(self)
         if self.itemID then
@@ -604,7 +605,7 @@ function Details:_RefreshLeaderboard()
             total = total,
             totals = t,
             levelSummary = string.format("L%d", levelSum),
-            titles = table.concat(titleParts, "  "),
+            titles = table.concat(titleParts, " | "),
             updatedAt = tonumber(peer.updatedAt) or 0,
         })
     end
@@ -663,7 +664,7 @@ function Details:_RefreshLeaderboard()
         if not self._emptyText then
             self._emptyText = self.content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
             self._emptyText:SetPoint("TOP", self.content, "TOP", 0, -20)
-            self._emptyText:SetText("Aucune donnée communautaire reçue pour le canal UGC.")
+            self._emptyText:SetText("No community data received on the UGC channel yet.")
             self._emptyText:SetJustifyH("CENTER")
             self._emptyText:SetWidth(self.content:GetWidth())
         end
@@ -675,16 +676,16 @@ function Details:_RefreshLeaderboard()
 
     self.content:SetHeight(math.max(yOffset, 20))
 
-    if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Actions") end
-    if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Niveaux") end
-    if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("Titres") end
+    if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Number of Gathers") end
+    if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Levels") end
+    if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("Titles") end
 
     local rankText = playerRank and ("#" .. playerRank) or "N/A"
     self._summaryLine1:SetText(string.format(
-        "Canal |cff33E633UGC|r  |  Joueurs: %d  |  Actions partagées: %d",
+        "Channel |cff33E633UGC|r  |  Players: %d  |  Shared gathers: %d",
         #rows, grandTotal))
     self._summaryLine2:SetText(string.format(
-        "Votre rang: |cffffd700%s|r  |  Astuce: invitez d'autres joueurs à rejoindre le canal UGC.",
+        "Your rank: |cffffd700%s|r  |  Tip: ask more players to join the UGC channel.",
         rankText))
 end
 

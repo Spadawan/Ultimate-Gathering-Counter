@@ -72,11 +72,33 @@ local function decodePayload(msg)
 end
 
 function Community:_getPlayerName()
+    local full = GetUnitName and GetUnitName("player", true)
+    if full and full ~= "" then
+        return full
+    end
+
     local n, realm = UnitName("player")
     if realm and realm ~= "" then
-        return n .. "-" .. realm
+        return n .. "-" .. realm:gsub("%s+", "")
     end
     return n or "Unknown"
+end
+
+function Community:_normalizePlayerName(name)
+    if type(name) ~= "string" or name == "" then
+        return nil
+    end
+    local n, realm = string.match(name, "^([^%-]+)%-(.+)$")
+    if n and realm then
+        return n .. "-" .. realm:gsub("%s+", "")
+    end
+
+    local playerRealm = GetRealmName and GetRealmName() or ""
+    playerRealm = tostring(playerRealm):gsub("%s+", "")
+    if playerRealm ~= "" then
+        return name .. "-" .. playerRealm
+    end
+    return name
 end
 
 function Community:_collectLocalSnapshot()
@@ -106,7 +128,7 @@ function Community:BroadcastSnapshot(force)
     self._lastSendAt = now
 
     local snapshot = self:_collectLocalSnapshot()
-    UGC.DB:UpsertCommunityPeer(self:_getPlayerName(), {
+    UGC.DB:UpsertCommunityPeer(self:_normalizePlayerName(self:_getPlayerName()), {
         totals = snapshot.totals,
         levels = snapshot.levels,
         updatedAt = UGC.Compat:GetServerTime(),
@@ -153,6 +175,8 @@ end
 
 function Community:OnAddonMessage(prefix, message, channel, sender)
     if prefix ~= PREFIX or not sender or sender == "" then return end
+    sender = self:_normalizePlayerName(sender)
+    if not sender then return end
 
     local msgType = tostring(message or ""):match("^([A-Z])")
     if msgType == "R" then

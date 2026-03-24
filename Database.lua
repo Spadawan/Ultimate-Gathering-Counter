@@ -9,7 +9,7 @@ local UGC = _G.UGC
 UGC.DB = {}
 local DB = UGC.DB
 
-local SCHEMA_VERSION = 5
+local SCHEMA_VERSION = 6
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -47,6 +47,7 @@ local DEFAULTS = {
         fish    = { level = 1, xp = 0, totalHarvests = 0 },
         leather = { level = 1, xp = 0, totalHarvests = 0 },
     },
+    professionProgressByCharacter = {},
     community = {
         peers = {},
         lastCleanup = 0,
@@ -105,6 +106,11 @@ function DB:Init()
     if ver < 5 then
         if not UGC_DB.community then
             UGC_DB.community = { peers = {}, lastCleanup = 0 }
+        end
+    end
+    if ver < 6 then
+        if not UGC_DB.professionProgressByCharacter then
+            UGC_DB.professionProgressByCharacter = {}
         end
     end
     if ver < SCHEMA_VERSION then
@@ -282,16 +288,56 @@ local function ensureProfessionState(state)
     return state
 end
 
+local function getCharacterKey()
+    local full = GetUnitName and GetUnitName("player", true)
+    if type(full) == "string" and full ~= "" then
+        return full
+    end
+
+    local name, realm = UnitName("player")
+    if not name or name == "" then
+        return "Unknown"
+    end
+    if realm and realm ~= "" then
+        return name .. "-" .. realm:gsub("%s+", "")
+    end
+    return name
+end
+
+local function cloneLegacyProfessionProgress()
+    local out = {}
+    local src = UGC_DB.professionProgress or {}
+    for _, cat in ipairs(UGC.CATEGORY_ORDER or { "herbs", "ore", "fish", "leather" }) do
+        out[cat] = ensureProfessionState(src[cat])
+    end
+    return out
+end
+
 function DB:GetProfessionProgress(category)
-    UGC_DB.professionProgress = UGC_DB.professionProgress or {}
-    UGC_DB.professionProgress[category] =
-        ensureProfessionState(UGC_DB.professionProgress[category])
-    return UGC_DB.professionProgress[category]
+    UGC_DB.professionProgressByCharacter = UGC_DB.professionProgressByCharacter or {}
+
+    local charKey = getCharacterKey()
+    local state = UGC_DB.professionProgressByCharacter[charKey]
+    if type(state) ~= "table" then
+        state = cloneLegacyProfessionProgress()
+        UGC_DB.professionProgressByCharacter[charKey] = state
+    end
+
+    state[category] = ensureProfessionState(state[category])
+    return state[category]
 end
 
 function DB:SetProfessionProgress(category, state)
-    UGC_DB.professionProgress = UGC_DB.professionProgress or {}
-    UGC_DB.professionProgress[category] = ensureProfessionState(state)
+    UGC_DB.professionProgressByCharacter = UGC_DB.professionProgressByCharacter or {}
+
+    local charKey = getCharacterKey()
+    local charState = UGC_DB.professionProgressByCharacter[charKey]
+    if type(charState) ~= "table" then
+        charState = cloneLegacyProfessionProgress()
+        UGC_DB.professionProgressByCharacter[charKey] = charState
+    end
+
+    charState[category] = ensureProfessionState(state)
 end
 
 -------------------------------------------------------------------------------
@@ -389,6 +435,12 @@ end
 function DB:UpsertCommunityPeer(name, payload)
     if type(name) ~= "string" or name == "" or type(payload) ~= "table" then return end
     local peers = self:GetCommunityPeers()
+
+    local baseName = name:match("^([^%-]+)%-")
+    if baseName and peers[baseName] then
+        peers[baseName] = nil
+    end
+
     peers[name] = {
         name = name,
         updatedAt = tonumber(payload.updatedAt) or UGC.Compat:GetServerTime(),
