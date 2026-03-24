@@ -9,7 +9,7 @@ local UGC = _G.UGC
 UGC.DB = {}
 local DB = UGC.DB
 
-local SCHEMA_VERSION = 6
+local SCHEMA_VERSION = 7
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -48,6 +48,7 @@ local DEFAULTS = {
         leather = { level = 1, xp = 0, totalHarvests = 0 },
     },
     professionProgressByCharacter = {},
+    professionProgressLegacyMigrated = false,
     community = {
         peers = {},
         lastCleanup = 0,
@@ -111,6 +112,11 @@ function DB:Init()
     if ver < 6 then
         if not UGC_DB.professionProgressByCharacter then
             UGC_DB.professionProgressByCharacter = {}
+        end
+    end
+    if ver < 7 then
+        if UGC_DB.professionProgressLegacyMigrated == nil then
+            UGC_DB.professionProgressLegacyMigrated = false
         end
     end
     if ver < SCHEMA_VERSION then
@@ -304,13 +310,48 @@ local function getCharacterKey()
     return name
 end
 
+local function createEmptyProfessionProgress()
+    local out = {}
+    for _, cat in ipairs(UGC.CATEGORY_ORDER or { "herbs", "ore", "fish", "leather" }) do
+        out[cat] = ensureProfessionState(nil)
+    end
+    return out
+end
+
+local function hasLegacyProfessionProgress()
+    local src = UGC_DB.professionProgress or {}
+    for _, cat in ipairs(UGC.CATEGORY_ORDER or { "herbs", "ore", "fish", "leather" }) do
+        local st = ensureProfessionState(src[cat])
+        if (st.level or 1) > 1 or (st.xp or 0) > 0 or (st.totalHarvests or 0) > 0 then
+            return true
+        end
+    end
+    return false
+end
+
 local function cloneLegacyProfessionProgress()
     local out = {}
     local src = UGC_DB.professionProgress or {}
     for _, cat in ipairs(UGC.CATEGORY_ORDER or { "herbs", "ore", "fish", "leather" }) do
-        out[cat] = ensureProfessionState(src[cat])
+        local old = ensureProfessionState(src[cat])
+        out[cat] = {
+            level = old.level,
+            xp = old.xp,
+            totalHarvests = old.totalHarvests,
+        }
     end
     return out
+end
+
+local function createCharacterProgressState()
+    UGC_DB.professionProgressLegacyMigrated = (UGC_DB.professionProgressLegacyMigrated == true)
+
+    if (not UGC_DB.professionProgressLegacyMigrated) and hasLegacyProfessionProgress() then
+        UGC_DB.professionProgressLegacyMigrated = true
+        return cloneLegacyProfessionProgress()
+    end
+
+    return createEmptyProfessionProgress()
 end
 
 function DB:GetProfessionProgress(category)
@@ -319,7 +360,7 @@ function DB:GetProfessionProgress(category)
     local charKey = getCharacterKey()
     local state = UGC_DB.professionProgressByCharacter[charKey]
     if type(state) ~= "table" then
-        state = cloneLegacyProfessionProgress()
+        state = createCharacterProgressState()
         UGC_DB.professionProgressByCharacter[charKey] = state
     end
 
@@ -333,7 +374,7 @@ function DB:SetProfessionProgress(category, state)
     local charKey = getCharacterKey()
     local charState = UGC_DB.professionProgressByCharacter[charKey]
     if type(charState) ~= "table" then
-        charState = cloneLegacyProfessionProgress()
+        charState = createCharacterProgressState()
         UGC_DB.professionProgressByCharacter[charKey] = charState
     end
 
