@@ -34,6 +34,7 @@ local TABS = {
 }
 
 local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
+local CLASS_ICON_TEXTURE = "Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES"
 local PROF_ORDER = { "herbs", "ore", "fish", "leather" }
 
 local function CreateProgressRow(parent)
@@ -178,6 +179,22 @@ function Details:_CreateRow(parent)
         if self.itemID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink("item:" .. self.itemID)
+            GameTooltip:Show()
+            self.bg:SetColorTexture(1, 1, 1, 0.08)
+            return
+        end
+
+        if self.leaderboardData then
+            local d = self.leaderboardData
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:ClearLines()
+            GameTooltip:AddLine(string.format("#%d %s", d.rank or 0, d.name or "Unknown"), 0.2, 1.0, 0.2)
+            GameTooltip:AddLine(string.format("Number of Gathers: %d", d.total or 0), 1, 1, 1)
+            GameTooltip:AddLine(string.format("Herbs: %d  Ore: %d  Fish: %d  Leather: %d",
+                d.herbs or 0, d.ore or 0, d.fish or 0, d.leather or 0), 0.85, 0.85, 0.85)
+            GameTooltip:AddLine(string.format("Levels (sum): %s", d.levelSummary or "L0"), 0.8, 0.8, 1)
+            GameTooltip:AddLine("Titles:", 1, 0.82, 0.2)
+            GameTooltip:AddLine(d.titles or "-", 0.92, 0.92, 0.92, true)
             GameTooltip:Show()
             self.bg:SetColorTexture(1, 1, 1, 0.08)
         end
@@ -715,6 +732,7 @@ function Details:_RefreshLeaderboard()
         end
 
         row.itemID = nil
+        row.leaderboardData = nil
         row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
         row:SetWidth(self.content:GetWidth())
 
@@ -734,6 +752,17 @@ function Details:_RefreshLeaderboard()
         row.valueText:SetText(entry.levelSummary)
         row.pctText:SetText(entry.titles)
         row.pctText:SetJustifyH("LEFT")
+        row.leaderboardData = {
+            rank = i,
+            name = entry.name,
+            total = entry.total,
+            herbs = t.herbs or 0,
+            ore = t.ore or 0,
+            fish = t.fish or 0,
+            leather = t.leather or 0,
+            levelSummary = entry.levelSummary,
+            titles = entry.titles,
+        }
 
         row:Show()
         yOffset = yOffset + ROW_HEIGHT + 1
@@ -870,6 +899,7 @@ function Details:Refresh()
         end
 
         row.itemID = item.itemID
+        row.leaderboardData = nil
         row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
         row:SetWidth(self.content:GetWidth())
 
