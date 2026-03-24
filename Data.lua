@@ -46,6 +46,7 @@ UGC.EXCLUDED_ITEM_IDS = {
     [242640] = true, -- Plant Protein
     [242639] = true, -- Presque du porc / Almost Pork
     [265800] = true, -- Garniture terreuse / Earthly Dressing
+    [210814] = true, -- Acuité artisanale / Artisan's Acuity
 }
 
 local function addItems(category, tbl)
