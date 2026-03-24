@@ -21,37 +21,11 @@ local ITEM_CLASS_WEAPON = 2
 local ITEM_CLASS_ARMOR = 4
 
 local function GetDynamicCategoryFromItemInfo(itemID)
-    local _, _, _, _, _, itemType, itemSubType, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
+    local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
-    if type(itemType) == "string" and type(itemSubType) == "string" then
-        local haystack = string.lower(itemType .. "|" .. itemSubType)
-
-        -- Ignore non-gathering recipe/plan-like entries.
-        if haystack:find("recipe", 1, true) or haystack:find("plan", 1, true)
-            or haystack:find("recette", 1, true) or haystack:find("plan:", 1, true) then
-            return nil
-        end
-
-        -- Prefer explicit keyword matching before class/subclass fallback.
-        if haystack:find("herb", 1, true) or haystack:find("herbe", 1, true) then
-            return "herbs"
-        end
-        if haystack:find("metal", 1, true) or haystack:find("stone", 1, true)
-            or haystack:find("métal", 1, true) or haystack:find("pierre", 1, true)
-            or haystack:find("ore", 1, true) or haystack:find("minerai", 1, true) then
-            return "ore"
-        end
-        if haystack:find("fish", 1, true) or haystack:find("poisson", 1, true) then
-            return "fish"
-        end
-        if haystack:find("leather", 1, true) or haystack:find("cuir", 1, true)
-            or haystack:find("hide", 1, true) or haystack:find("peau", 1, true)
-            or haystack:find("scale", 1, true) or haystack:find("écaille", 1, true)
-            or haystack:find("bone", 1, true) or haystack:find("os", 1, true) then
-            return "leather"
-        end
-    end
-
+    -- Strict class/subclass-only classification (no keyword heuristics):
+    -- - Trade Goods/Reagents mapped via UGC.SUBCLASS_MAP
+    -- - Consumable fish subtype mapped via UGC.SUBCLASS_MAP
     if classID and subClassID then
         local classMap = UGC.SUBCLASS_MAP[classID]
         if classMap and classMap[subClassID] then
