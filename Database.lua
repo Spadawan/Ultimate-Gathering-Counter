@@ -294,7 +294,7 @@ local function ensureProfessionState(state)
     return state
 end
 
-local function getCharacterKey()
+local function getLegacyNameKey()
     local full = GetUnitName and GetUnitName("player", true)
     if type(full) == "string" and full ~= "" then
         return full
@@ -302,12 +302,21 @@ local function getCharacterKey()
 
     local name, realm = UnitName("player")
     if not name or name == "" then
-        return "Unknown"
+        return nil
     end
     if realm and realm ~= "" then
         return name .. "-" .. realm:gsub("%s+", "")
     end
     return name
+end
+
+local function getCharacterKey()
+    local guid = UnitGUID and UnitGUID("player")
+    if type(guid) == "string" and guid ~= "" then
+        return guid
+    end
+
+    return getLegacyNameKey() or "Unknown"
 end
 
 local function createEmptyProfessionProgress()
@@ -360,8 +369,15 @@ function DB:GetProfessionProgress(category)
     local charKey = getCharacterKey()
     local state = UGC_DB.professionProgressByCharacter[charKey]
     if type(state) ~= "table" then
-        state = createCharacterProgressState()
-        UGC_DB.professionProgressByCharacter[charKey] = state
+        local legacyNameKey = getLegacyNameKey()
+        if legacyNameKey and type(UGC_DB.professionProgressByCharacter[legacyNameKey]) == "table" then
+            state = UGC_DB.professionProgressByCharacter[legacyNameKey]
+            UGC_DB.professionProgressByCharacter[charKey] = state
+            UGC_DB.professionProgressByCharacter[legacyNameKey] = nil
+        else
+            state = createCharacterProgressState()
+            UGC_DB.professionProgressByCharacter[charKey] = state
+        end
     end
 
     state[category] = ensureProfessionState(state[category])
@@ -374,8 +390,15 @@ function DB:SetProfessionProgress(category, state)
     local charKey = getCharacterKey()
     local charState = UGC_DB.professionProgressByCharacter[charKey]
     if type(charState) ~= "table" then
-        charState = createCharacterProgressState()
-        UGC_DB.professionProgressByCharacter[charKey] = charState
+        local legacyNameKey = getLegacyNameKey()
+        if legacyNameKey and type(UGC_DB.professionProgressByCharacter[legacyNameKey]) == "table" then
+            charState = UGC_DB.professionProgressByCharacter[legacyNameKey]
+            UGC_DB.professionProgressByCharacter[charKey] = charState
+            UGC_DB.professionProgressByCharacter[legacyNameKey] = nil
+        else
+            charState = createCharacterProgressState()
+            UGC_DB.professionProgressByCharacter[charKey] = charState
+        end
     end
 
     charState[category] = ensureProfessionState(state)
