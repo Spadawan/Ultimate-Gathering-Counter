@@ -81,11 +81,8 @@ function Tracker:_isExcludedLeatherEquipment(itemID, category)
         return true
     end
 
-    -- Fallback when GetItemInfoInstant is unavailable or incomplete on some clients.
-    local _, _, _, _, _, itemType, _, _, equipLoc = GetItemInfo(itemID)
-    if type(equipLoc) == "string" and equipLoc ~= "" then
-        return true
-    end
+    -- Fallback when class info is unavailable/incomplete on some clients.
+    local _, _, _, _, _, itemType = GetItemInfo(itemID)
 
     if type(itemType) == "string" then
         local t = string.lower(itemType)
