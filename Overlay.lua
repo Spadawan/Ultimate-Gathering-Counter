@@ -95,6 +95,11 @@ local function CreateItemRow(parent)
             row.iconBtn,
             (i - 1) * 7
         )
+
+        local ok = row.qualityStars[i]:SetTexture("Interface\\AddOns\\UltimateGatheringCounter\\media\\star")
+        if ok == false then
+            row.qualityStars[i]:SetTexture("Interface\\Common\\ReputationStar")
+        end
     end
 
     row.iconBtn:SetScript("OnEnter", function(self)
