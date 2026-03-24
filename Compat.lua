@@ -1,6 +1,12 @@
 -------------------------------------------------------------------------------
 -- Compat.lua
 -- Cross-version compatibility helpers for Retail + Classic clients.
+--
+-- IMPORTANT MAINTENANCE NOTE:
+-- Keep this file focused on API compatibility shims only (Retail vs Classic
+-- client API differences). Do not add gameplay/business logic here.
+-- Reason: gameplay logic belongs in core runtime modules (Tracker/Overlay/etc.)
+-- so behavior remains centralized and consistent across builds.
 -------------------------------------------------------------------------------
 
 local UGC = _G.UGC
@@ -105,12 +111,10 @@ end
 function Compat:GetItemCategoryFromInfo(itemID)
     local _, _, _, _, _, itemType, itemSubType, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
+    -- Legacy helper kept for compatibility only.
+    -- Category/gameplay logic should live in Tracker.lua.
     if type(itemType) == "string" and type(itemSubType) == "string" then
         local haystack = string.lower(itemType .. "|" .. itemSubType)
-        if haystack:find("recipe", 1, true) or haystack:find("plan", 1, true)
-            or haystack:find("recette", 1, true) or haystack:find("plan:", 1, true) then
-            return nil
-        end
         if haystack:find("herb", 1, true) or haystack:find("herbe", 1, true) then
             return "herbs"
         end
