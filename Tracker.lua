@@ -44,6 +44,15 @@ function Tracker:Init()
     _initialized = true  -- safe to process bag events from now on
 end
 
+function Tracker:_isExcludedLeatherEquipment(itemID, category)
+    if category ~= "leather" then
+        return false
+    end
+
+    local _, _, _, _, classID = UGC.Compat:GetItemInfoInstant(itemID)
+    return classID == ITEM_CLASS_WEAPON or classID == ITEM_CLASS_ARMOR
+end
+
 function Tracker:_captureSnapshot()
     local settings = UGC.DB:GetSettings()
     local snapshot = {}
@@ -55,9 +64,14 @@ function Tracker:_captureSnapshot()
                 local itemID, stackCount = self:_getSlotInfo(bag, slot)
                 if itemID then
                     if UGC.ITEM_DB[itemID] then
-                        snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
-                        if not UGC.DB:GetCachedItem(itemID) then
-                            self:RequestItemCache(itemID)
+                        local knownCategory = UGC.ITEM_DB[itemID].category
+                        if not self:_isExcludedLeatherEquipment(itemID, knownCategory) then
+                            snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
+                            if not UGC.DB:GetCachedItem(itemID) then
+                                self:RequestItemCache(itemID)
+                            end
+                        else
+                            UGC.ITEM_DB[itemID] = nil
                         end
                     else
                         -- Attempt dynamic detection without recording
@@ -268,11 +282,8 @@ function Tracker:DetectItemCategory(itemID)
     local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
     local cat = UGC.Compat:GetItemCategoryFromInfo(itemID)
 
-    if cat == "leather" then
-        local _, _, _, _, classID = UGC.Compat:GetItemInfoInstant(itemID)
-        if classID == ITEM_CLASS_WEAPON or classID == ITEM_CLASS_ARMOR then
-            return nil
-        end
+    if self:_isExcludedLeatherEquipment(itemID, cat) then
+        return nil
     end
 
     if cat and name and texture then
@@ -410,6 +421,10 @@ function Tracker:ParseLootMessage(msg)
     local cat
     if UGC.ITEM_DB[itemID] then
         cat = UGC.ITEM_DB[itemID].category
+        if self:_isExcludedLeatherEquipment(itemID, cat) then
+            UGC.ITEM_DB[itemID] = nil
+            cat = nil
+        end
     elseif settings.chatLootDetect then
         -- Try to detect and register for future bag scans
         cat = self:DetectItemCategory(itemID)
