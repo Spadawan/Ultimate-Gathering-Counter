@@ -71,6 +71,17 @@ function Compat:GetItemInfoInstant(itemID)
     return nil
 end
 
+-- Returns classID, subClassID across API variants.
+function Compat:GetItemClassInfo(itemID)
+    local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
+    if classID and subClassID then
+        return classID, subClassID
+    end
+
+    local _, _, _, _, _, i6, i7, _, _, _, _, i12, i13 = self:GetItemInfoInstant(itemID)
+    return i12 or i6, i13 or i7
+end
+
 function Compat:GetContainerNumSlots(bag)
     if C_Container and C_Container.GetContainerNumSlots then
         return C_Container.GetContainerNumSlots(bag)
@@ -104,7 +115,7 @@ end
 
 function Compat:GetItemCategoryFromInfo(itemID)
     local _, _, _, _, _, itemType, itemSubType = GetItemInfo(itemID)
-    local _, _, _, _, classID, subClassID = self:GetItemInfoInstant(itemID)
+    local classID, subClassID = self:GetItemClassInfo(itemID)
 
     if classID and subClassID then
         local classMap = UGC.SUBCLASS_MAP[classID]

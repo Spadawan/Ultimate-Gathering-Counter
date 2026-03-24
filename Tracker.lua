@@ -49,7 +49,7 @@ function Tracker:_isExcludedLeatherEquipment(itemID, category)
         return false
     end
 
-    local _, _, _, _, classID = UGC.Compat:GetItemInfoInstant(itemID)
+    local classID = UGC.Compat:GetItemClassInfo(itemID)
     if classID == ITEM_CLASS_WEAPON or classID == ITEM_CLASS_ARMOR then
         return true
     end
