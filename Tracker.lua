@@ -191,7 +191,9 @@ function Tracker:_captureSnapshot()
             for slot = 1, numSlots do
                 local itemID, stackCount = self:_getSlotInfo(bag, slot)
                 if itemID then
-                    if UGC.ITEM_DB[itemID] then
+                    if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+                        UGC.ITEM_DB[itemID] = nil
+                    elseif UGC.ITEM_DB[itemID] then
                         local knownCategory = UGC.ITEM_DB[itemID].category
                         if not self:_isExcludedLeatherEquipment(itemID, knownCategory) then
                             snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
@@ -553,6 +555,9 @@ function Tracker:ParseLootMessage(msg)
 
     local itemID = tonumber(itemLink:match("item:(%d+)"))
     if not itemID then return end
+    if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+        return
+    end
 
     local settings = UGC.DB:GetSettings()
     local cat

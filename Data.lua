@@ -40,6 +40,13 @@ UGC.SUBCLASS_MAP = {
 -- "hint" is a fallback display name used only before GetItemInfo resolves.
 UGC.ITEM_DB = {}
 
+-- Explicit exclusions from tracking (noise items that should never grant
+-- gather tracking/progression categories).
+UGC.EXCLUDED_ITEM_IDS = {
+    [242640] = true, -- Plant Protein
+    [242639] = true, -- Presque du porc / Almost Pork
+}
+
 local function addItems(category, tbl)
     for id, name in pairs(tbl) do
         UGC.ITEM_DB[id] = { category = category, hint = name }
