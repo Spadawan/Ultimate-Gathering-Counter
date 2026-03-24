@@ -405,6 +405,12 @@ end
 -------------------------------------------------------------------------------
 -- Community peer data
 -------------------------------------------------------------------------------
+local function _sanitizeClassToken(token)
+    token = tostring(token or ""):upper()
+    if token == "" then return nil end
+    return token
+end
+
 local function _copyCounts(src)
     return {
         herbs = tonumber(src and src.herbs) or 0,
@@ -446,6 +452,7 @@ function DB:UpsertCommunityPeer(name, payload)
         updatedAt = tonumber(payload.updatedAt) or UGC.Compat:GetServerTime(),
         totals = _copyCounts(payload.totals),
         levels = _copyProgress(payload.levels),
+        classToken = _sanitizeClassToken(payload.classToken),
     }
 end
 

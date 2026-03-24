@@ -10,7 +10,7 @@ local Community = UGC.Community
 
 local PREFIX = "UGC_SYNC"
 local CHANNEL_NAME = "UGC"
-local VERSION = 1
+local VERSION = 2
 local STALE_SECONDS = 7 * 24 * 3600
 local THROTTLE_SECONDS = 20
 
@@ -44,6 +44,7 @@ local function encodePayload(data)
         tostring(data.levels.ore.title or "Novice"),
         tostring(data.levels.fish.title or "Novice"),
         tostring(data.levels.leather.title or "Novice"),
+        tostring(data.classToken or ""),
     }, "|")
 end
 
@@ -52,7 +53,9 @@ local function decodePayload(msg)
     if #parts < 14 or parts[1] ~= "S" then
         return nil
     end
-    if tonumber(parts[2]) ~= VERSION then
+
+    local messageVersion = tonumber(parts[2]) or 0
+    if messageVersion < 1 or messageVersion > VERSION then
         return nil
     end
     return {
@@ -67,7 +70,8 @@ local function decodePayload(msg)
             ore = { level = tonumber(parts[8]) or 1, title = parts[12] or "Novice" },
             fish = { level = tonumber(parts[9]) or 1, title = parts[13] or "Novice" },
             leather = { level = tonumber(parts[10]) or 1, title = parts[14] or "Novice" },
-        }
+        },
+        classToken = parts[15],
     }
 end
 
@@ -108,7 +112,8 @@ function Community:_collectLocalSnapshot()
         local p = UGC.Progression and UGC.Progression:GetProgress(cat) or { level = 1, title = "Novice" }
         levels[cat] = { level = p.level or 1, title = p.title or "Novice" }
     end
-    return { totals = totals, levels = levels }
+    local _, classToken = UnitClass("player")
+    return { totals = totals, levels = levels, classToken = classToken }
 end
 
 function Community:_send(msg)
@@ -131,6 +136,7 @@ function Community:BroadcastSnapshot(force)
     UGC.DB:UpsertCommunityPeer(self:_normalizePlayerName(self:_getPlayerName()), {
         totals = snapshot.totals,
         levels = snapshot.levels,
+        classToken = snapshot.classToken,
         updatedAt = UGC.Compat:GetServerTime(),
     })
 
@@ -190,6 +196,7 @@ function Community:OnAddonMessage(prefix, message, channel, sender)
     UGC.DB:UpsertCommunityPeer(sender, {
         totals = payload.totals,
         levels = payload.levels,
+        classToken = payload.classToken,
         updatedAt = UGC.Compat:GetServerTime(),
     })
 
