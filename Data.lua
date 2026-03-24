@@ -8,7 +8,7 @@ local UGC = {}
 _G.UGC = UGC
 
 UGC.ADDON_NAME = "UltimateGatheringCounter"
-UGC.VERSION    = "1.1.0"
+UGC.VERSION    = "1.2.0"
 
 -- Category definitions
 UGC.CATEGORIES = {
@@ -26,9 +26,10 @@ UGC.CATEGORY_ORDER = { "herbs", "ore", "fish", "leather" }
 UGC.SUBCLASS_MAP = {
     [7] = {
         [7]  = "ore",      -- Metal & Stone
-        [8]  = "leather",  -- Leather
+        -- Ambiguous subtype on Retail; prefer routing to fishing so fish items
+        -- never end up in leather.
+        [8]  = "fish",
         [9]  = "herbs",    -- Herb
-        [18] = "leather",  -- Misc / skinning byproducts
     },
     [2] = {
         [47] = "fish",     -- Fish (Consumable subtype)
@@ -39,9 +40,19 @@ UGC.SUBCLASS_MAP = {
 -- "hint" is a fallback display name used only before GetItemInfo resolves.
 UGC.ITEM_DB = {}
 
+-- Explicit exclusions from tracking (noise items that should never grant
+-- gather tracking/progression categories).
+UGC.EXCLUDED_ITEM_IDS = {
+    [242640] = true, -- Plant Protein
+    [242639] = true, -- Presque du porc / Almost Pork
+    [265800] = true, -- Garniture terreuse / Earthly Dressing
+}
+
 local function addItems(category, tbl)
     for id, name in pairs(tbl) do
-        UGC.ITEM_DB[id] = { category = category, hint = name }
+        if not UGC.EXCLUDED_ITEM_IDS[id] then
+            UGC.ITEM_DB[id] = { category = category, hint = name }
+        end
     end
 end
 

@@ -19,6 +19,92 @@ local _firstScanDone = false
 local LOOT_CONFIRM_WINDOW = 15
 local ITEM_CLASS_WEAPON = 2
 local ITEM_CLASS_ARMOR = 4
+local SKILLLINE_BY_CATEGORY = {
+    herbs   = 182, -- Herbalism
+    ore     = 186, -- Mining
+    fish    = 356, -- Fishing
+    leather = 393, -- Skinning
+}
+
+local function _extractLootPrefix(fmt)
+    if type(fmt) ~= "string" or fmt == "" then
+        return nil
+    end
+    local sPos = fmt:find("%%s", 1, true)
+    local dPos = fmt:find("%%d", 1, true)
+    local cut = nil
+    if sPos and dPos then
+        cut = math.min(sPos, dPos)
+    else
+        cut = sPos or dPos
+    end
+    if not cut then
+        return fmt
+    end
+    return fmt:sub(1, cut - 1)
+end
+
+local NON_GATHER_PREFIXES = {
+    _extractLootPrefix(_G.LOOT_ITEM_PUSHED_SELF),
+    _extractLootPrefix(_G.LOOT_ITEM_PUSHED_SELF_MULTIPLE),
+}
+
+local function _isNonGatherReceiveMessage(msg)
+    if type(msg) ~= "string" or msg == "" then return false end
+    for _, prefix in ipairs(NON_GATHER_PREFIXES) do
+        if prefix and prefix ~= "" and msg:sub(1, #prefix) == prefix then
+            return true
+        end
+    end
+    return false
+end
+
+local function _isNonGatherContextOpen()
+    if MailFrame and MailFrame.IsShown and MailFrame:IsShown() then
+        return true
+    end
+    if OpenMailFrame and OpenMailFrame.IsShown and OpenMailFrame:IsShown() then
+        return true
+    end
+    if SendMailFrame and SendMailFrame.IsShown and SendMailFrame:IsShown() then
+        return true
+    end
+    if TradeFrame and TradeFrame.IsShown and TradeFrame:IsShown() then
+        return true
+    end
+    return false
+end
+
+local function GetDynamicCategoryFromItemInfo(itemID)
+    local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
+
+    -- Retail-first strict detection based on profession reagent source.
+    if C_TradeSkillUI and C_TradeSkillUI.IsReagentInSkillLine then
+        for cat, skillLineID in pairs(SKILLLINE_BY_CATEGORY) do
+            local ok, isInSkillLine = pcall(C_TradeSkillUI.IsReagentInSkillLine, itemID, skillLineID)
+            if ok and isInSkillLine then
+                return cat
+            end
+        end
+    end
+
+    -- Fallback classifier (localized type/subtype + class/subclass mapping).
+    if UGC.Compat and UGC.Compat.GetItemCategoryFromInfo then
+        local cat = UGC.Compat:GetItemCategoryFromInfo(itemID)
+        if cat then
+            return cat
+        end
+    end
+
+    if classID and subClassID then
+        local classMap = UGC.SUBCLASS_MAP[classID]
+        if classMap and classMap[subClassID] then
+            return classMap[subClassID]
+        end
+    end
+
+    return nil
+end
 
 local function GetItemClassInfo(itemID)
     local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
@@ -62,6 +148,13 @@ UGC.Session = {
 function Tracker:Init()
     _initialized  = false  -- block ScanBags during snapshot
     _firstScanDone = false -- next ScanBags call will re-seed, not record gains
+
+    if UGC.EXCLUDED_ITEM_IDS then
+        for itemID in pairs(UGC.EXCLUDED_ITEM_IDS) do
+            UGC.ITEM_DB[itemID] = nil
+        end
+    end
+
     UGC.Session.startTime = GetTime()
     wipe(UGC.Session.items)
     wipe(UGC.Session.bagSnapshot)
@@ -105,7 +198,9 @@ function Tracker:_captureSnapshot()
             for slot = 1, numSlots do
                 local itemID, stackCount = self:_getSlotInfo(bag, slot)
                 if itemID then
-                    if UGC.ITEM_DB[itemID] then
+                    if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+                        UGC.ITEM_DB[itemID] = nil
+                    elseif UGC.ITEM_DB[itemID] then
                         local knownCategory = UGC.ITEM_DB[itemID].category
                         if not self:_isExcludedLeatherEquipment(itemID, knownCategory) then
                             snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
@@ -286,6 +381,9 @@ function Tracker:ScanBags()
     for cat in pairs(gainedCats) do
         UGC.DB:RecordGatherAction(cat)
         UGC.Session.gatherCount[cat] = (UGC.Session.gatherCount[cat] or 0) + 1
+        if UGC.Progression then
+            UGC.Progression:AddGatherAction(cat)
+        end
     end
 
     -- Update all tracked items' bag counts
@@ -322,7 +420,7 @@ end
 -------------------------------------------------------------------------------
 function Tracker:DetectItemCategory(itemID)
     local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
-    local cat = UGC.Compat:GetItemCategoryFromInfo(itemID)
+    local cat = GetDynamicCategoryFromItemInfo(itemID)
 
     if self:_isExcludedLeatherEquipment(itemID, cat) then
         return nil
@@ -383,6 +481,9 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
     local result    = {}
 
     for itemID, data in pairs(UGC.ITEM_DB) do
+        if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+            UGC.ITEM_DB[itemID] = nil
+        else
         local cat = data.category
         if (not categoryFilter or categoryFilter == cat)
            and settings.showCategories[cat] then
@@ -409,6 +510,7 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
                     hourlyRate    = self:GetHourlyRate(itemID),
                 })
             end
+        end
         end
     end
 
@@ -452,12 +554,21 @@ end
 -------------------------------------------------------------------------------
 function Tracker:ParseLootMessage(msg)
     if not msg then return end
+    if _isNonGatherReceiveMessage(msg) then
+        return
+    end
+    if _isNonGatherContextOpen() then
+        return
+    end
 
     local itemLink = msg:match("|H(item:[^|]+)|h")
     if not itemLink then return end
 
     local itemID = tonumber(itemLink:match("item:(%d+)"))
     if not itemID then return end
+    if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+        return
+    end
 
     local settings = UGC.DB:GetSettings()
     local cat

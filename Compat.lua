@@ -1,6 +1,12 @@
 -------------------------------------------------------------------------------
 -- Compat.lua
 -- Cross-version compatibility helpers for Retail + Classic clients.
+--
+-- IMPORTANT MAINTENANCE NOTE:
+-- Keep this file focused on API compatibility shims only (Retail vs Classic
+-- client API differences). Do not add gameplay/business logic here.
+-- Reason: gameplay logic belongs in core runtime modules (Tracker/Overlay/etc.)
+-- so behavior remains centralized and consistent across builds.
 -------------------------------------------------------------------------------
 
 local UGC = _G.UGC
@@ -105,13 +111,8 @@ end
 function Compat:GetItemCategoryFromInfo(itemID)
     local _, _, _, _, _, itemType, itemSubType, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
-    if classID and subClassID then
-        local classMap = UGC.SUBCLASS_MAP[classID]
-        if classMap and classMap[subClassID] then
-            return classMap[subClassID]
-        end
-    end
-
+    -- Legacy helper kept for compatibility only.
+    -- Category/gameplay logic should live in Tracker.lua.
     if type(itemType) == "string" and type(itemSubType) == "string" then
         local haystack = string.lower(itemType .. "|" .. itemSubType)
         if haystack:find("herb", 1, true) or haystack:find("herbe", 1, true) then
@@ -130,6 +131,13 @@ function Compat:GetItemCategoryFromInfo(itemID)
             or haystack:find("scale", 1, true) or haystack:find("écaille", 1, true)
             or haystack:find("bone", 1, true) or haystack:find("os", 1, true) then
             return "leather"
+        end
+    end
+
+    if classID and subClassID then
+        local classMap = UGC.SUBCLASS_MAP[classID]
+        if classMap and classMap[subClassID] then
+            return classMap[subClassID]
         end
     end
 

@@ -10,6 +10,7 @@ Data.lua
 Compat.lua
 Database.lua
 Tracker.lua
+Progression.lua
 Overlay.lua
 Details.lua
 Config.lua
