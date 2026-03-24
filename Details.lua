@@ -30,9 +30,11 @@ local TABS = {
     { key = "weekly",   label = "This Week" },
     { key = "daily",    label = "Today"     },
     { key = "lastHour", label = "Last Hour" },
+    { key = "leaderboard", label = "Leaderboard" },
 }
 
 local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
+local CLASS_ICON_TEXTURE = "Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES"
 local PROF_ORDER = { "herbs", "ore", "fish", "leather" }
 
 local function CreateProgressRow(parent)
@@ -102,6 +104,22 @@ local function GetAuctionPrice(itemID)
     return ok and price or nil
 end
 
+
+local function SetDefaultIcon(texture)
+    texture:SetTexture(ICON_UNKNOWN)
+    texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+end
+
+local function SetClassIcon(texture, classToken)
+    local coords = classToken and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classToken]
+    if coords then
+        texture:SetTexture(CLASS_ICON_TEXTURE)
+        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+        return
+    end
+    SetDefaultIcon(texture)
+end
+
 -------------------------------------------------------------------------------
 -- Row factory
 -------------------------------------------------------------------------------
@@ -116,7 +134,7 @@ function Details:_CreateRow(parent)
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(ROW_HEIGHT - 2, ROW_HEIGHT - 2)
     row.icon:SetPoint("LEFT", row, "LEFT", 3, 0)
-    row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    SetDefaultIcon(row.icon)
 
     -- Quality stars with a Retail mask path and a Classic-safe texture fallback.
     row.qualityStars = {}
@@ -155,11 +173,28 @@ function Details:_CreateRow(parent)
     row.pctText:SetWidth(80)
     row.pctText:SetJustifyH("RIGHT")
     row.pctText:SetTextColor(0.55, 0.55, 0.55)
+    row.pctText:SetWordWrap(false)
 
     row:SetScript("OnEnter", function(self)
         if self.itemID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink("item:" .. self.itemID)
+            GameTooltip:Show()
+            self.bg:SetColorTexture(1, 1, 1, 0.08)
+            return
+        end
+
+        if self.leaderboardData then
+            local d = self.leaderboardData
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:ClearLines()
+            GameTooltip:AddLine(string.format("#%d %s", d.rank or 0, d.name or "Unknown"), 0.2, 1.0, 0.2)
+            GameTooltip:AddLine(string.format("Number of Gathers: %d", d.total or 0), 1, 1, 1)
+            GameTooltip:AddLine(string.format("Herbs: %d  Ore: %d  Fish: %d  Leather: %d",
+                d.herbs or 0, d.ore or 0, d.fish or 0, d.leather or 0), 0.85, 0.85, 0.85)
+            GameTooltip:AddLine(string.format("Levels (sum): %s", d.levelSummary or "L0"), 0.8, 0.8, 1)
+            GameTooltip:AddLine("Titles:", 1, 0.82, 0.2)
+            GameTooltip:AddLine(d.titles or "-", 0.92, 0.92, 0.92, true)
             GameTooltip:Show()
             self.bg:SetColorTexture(1, 1, 1, 0.08)
         end
@@ -482,11 +517,12 @@ function Details:Init()
     itemColLbl:SetJustifyH("LEFT")
     itemColLbl:SetTextColor(0.55, 0.55, 0.55)
     itemColLbl:SetText("Item")
+    self._itemColLabel = itemColLbl
 
     -- Sortable headers
-    MakeSortHeader(colHdr, "Count",   208,  80, "count",  function() Details:Refresh() end)
-    MakeSortHeader(colHdr, "Value",   298, 120, "value",  function() Details:Refresh() end)
-    MakeSortHeader(colHdr, "% Total", 426,  80, "pct",    function() Details:Refresh() end)
+    self._countHeader = MakeSortHeader(colHdr, "Count",   208,  80, "count",  function() Details:Refresh() end)
+    self._valueHeader = MakeSortHeader(colHdr, "Value",   298, 120, "value",  function() Details:Refresh() end)
+    self._pctHeader   = MakeSortHeader(colHdr, "% Total", 426,  80, "pct",    function() Details:Refresh() end)
 
     -- Divider
     local div = f:CreateTexture(nil, "ARTWORK")
@@ -578,6 +614,189 @@ function Details:Toggle()
     end
 end
 
+
+
+function Details:_ApplyRowLayout(mode)
+    local isLeaderboard = (mode == "leaderboard")
+    local contentWidth = (self.content and self.content:GetWidth()) or (WINDOW_WIDTH - 34)
+
+    local nameWidth = isLeaderboard and 130 or 160
+    local countX = isLeaderboard and 170 or 210
+    local countW = isLeaderboard and 120 or 80
+    local valueX = countX + countW + 8
+    local valueW = isLeaderboard and 70 or 120
+    local pctX = valueX + valueW + 8
+    local pctW = math.max(isLeaderboard and 240 or 80, contentWidth - pctX - 8)
+
+    if self._itemColLabel then
+        self._itemColLabel:SetWidth(nameWidth)
+        self._itemColLabel:ClearAllPoints()
+        self._itemColLabel:SetPoint("LEFT", self.frame, "TOPLEFT", 32, -164)
+        self._itemColLabel:SetPoint("TOP", self.frame, "TOP", 0, -164)
+        if isLeaderboard then
+            self._itemColLabel:SetText("Player")
+        else
+            self._itemColLabel:SetText("Item")
+        end
+    end
+
+    if self._countHeader then
+        self._countHeader:SetWidth(countW)
+        self._countHeader:ClearAllPoints()
+        self._countHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + countX, -164)
+    end
+    if self._valueHeader then
+        self._valueHeader:SetWidth(valueW)
+        self._valueHeader:ClearAllPoints()
+        self._valueHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + valueX, -164)
+    end
+    if self._pctHeader then
+        self._pctHeader:SetWidth(pctW)
+        self._pctHeader:ClearAllPoints()
+        self._pctHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + pctX, -164)
+    end
+
+    for _, row in ipairs(self.rows or {}) do
+        row.nameText:SetWidth(nameWidth)
+
+        row.countText:ClearAllPoints()
+        row.countText:SetPoint("LEFT", row, "LEFT", countX, 0)
+        row.countText:SetWidth(countW)
+
+        row.valueText:ClearAllPoints()
+        row.valueText:SetPoint("LEFT", row, "LEFT", valueX, 0)
+        row.valueText:SetWidth(valueW)
+
+        row.pctText:ClearAllPoints()
+        row.pctText:SetPoint("LEFT", row, "LEFT", pctX, 0)
+        row.pctText:SetWidth(pctW)
+    end
+end
+
+function Details:_RefreshLeaderboard()
+    local peers = UGC.DB:GetCommunityPeers() or {}
+    local localName = (UGC.Community and UGC.Community._normalizePlayerName and UGC.Community:_normalizePlayerName(UGC.Community:_getPlayerName()))
+        or (UGC.Community and UGC.Community:_getPlayerName())
+        or UnitName("player")
+        or "You"
+    local rows = {}
+
+    for name, peer in pairs(peers) do
+        local t = peer.totals or {}
+        local levels = peer.levels or {}
+        local total = (t.herbs or 0) + (t.ore or 0) + (t.fish or 0) + (t.leather or 0)
+        local levelSum = 0
+        local titleParts = {}
+        for _, cat in ipairs(PROF_ORDER) do
+            local lvl = tonumber(levels[cat] and levels[cat].level) or 1
+            levelSum = levelSum + lvl
+            local title = tostring(levels[cat] and levels[cat].title or "Novice")
+            local c = UGC.CATEGORIES[cat]
+            table.insert(titleParts, string.format("|cff%s%s|r:%s", c.hex, c.label:sub(1,1), title))
+        end
+
+        table.insert(rows, {
+            name = name,
+            total = total,
+            totals = t,
+            levelSummary = string.format("L%d", levelSum),
+            titles = table.concat(titleParts, " | "),
+            updatedAt = tonumber(peer.updatedAt) or 0,
+            classToken = peer.classToken,
+        })
+    end
+
+    table.sort(rows, function(a, b)
+        if a.total == b.total then
+            return a.name < b.name
+        end
+        return a.total > b.total
+    end)
+
+    for _, row in ipairs(self.rows) do row:Hide() end
+
+    local yOffset = 0
+    local grandTotal = 0
+    local playerRank = nil
+
+    for i, entry in ipairs(rows) do
+        grandTotal = grandTotal + (entry.total or 0)
+        if entry.name == localName then
+            playerRank = i
+        end
+
+        local row = self.rows[i]
+        if not row then
+            row = self:_CreateRow(self.content)
+            self.rows[i] = row
+        end
+
+        row.itemID = nil
+        row.leaderboardData = nil
+        row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
+        row:SetWidth(self.content:GetWidth())
+
+        if i % 2 == 0 then
+            row.bg:SetColorTexture(1, 1, 1, 0.03)
+        else
+            row.bg:SetColorTexture(0, 0, 0, 0)
+        end
+
+        SetClassIcon(row.icon, entry.classToken)
+        for k = 1, 3 do row.qualityStars[k]:Hide() end
+
+        local t = entry.totals
+        row.nameText:SetText(string.format("#%d |cff33E633%s|r  |cff888888(H:%d O:%d F:%d L:%d)|r",
+            i, entry.name, t.herbs or 0, t.ore or 0, t.fish or 0, t.leather or 0))
+        row.countText:SetText(tostring(entry.total))
+        row.valueText:SetText(entry.levelSummary)
+        row.pctText:SetText(entry.titles)
+        row.pctText:SetJustifyH("LEFT")
+        row.leaderboardData = {
+            rank = i,
+            name = entry.name,
+            total = entry.total,
+            herbs = t.herbs or 0,
+            ore = t.ore or 0,
+            fish = t.fish or 0,
+            leather = t.leather or 0,
+            levelSummary = entry.levelSummary,
+            titles = entry.titles,
+        }
+
+        row:Show()
+        yOffset = yOffset + ROW_HEIGHT + 1
+    end
+
+    if #rows == 0 then
+        if not self._emptyText then
+            self._emptyText = self.content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+            self._emptyText:SetPoint("TOP", self.content, "TOP", 0, -20)
+            self._emptyText:SetText("No community data received on the UGC channel yet.")
+            self._emptyText:SetJustifyH("CENTER")
+            self._emptyText:SetWidth(self.content:GetWidth())
+        end
+        self._emptyText:Show()
+        yOffset = 50
+    elseif self._emptyText then
+        self._emptyText:Hide()
+    end
+
+    self.content:SetHeight(math.max(yOffset, 20))
+
+    if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Number of Gathers") end
+    if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Levels") end
+    if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("Titles") end
+
+    local rankText = playerRank and ("#" .. playerRank) or "N/A"
+    self._summaryLine1:SetText(string.format(
+        "Channel |cff33E633UGC|r  |  Players: %d  |  Shared gathers: %d",
+        #rows, grandTotal))
+    self._summaryLine2:SetText(string.format(
+        "Your rank: |cffffd700%s|r  |  Tip: ask more players to join the UGC channel.",
+        rankText))
+end
+
 -------------------------------------------------------------------------------
 -- Refresh — rebuilds table from current data/filter/tab
 -------------------------------------------------------------------------------
@@ -616,6 +835,18 @@ function Details:Refresh()
     local period    = self._currentTab    or "allTime"
     local catFilter = (self._currentFilter ~= "all") and self._currentFilter or nil
     local settings  = UGC.DB:GetSettings()
+
+    if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Count") end
+    if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Value") end
+    if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("% Total") end
+
+    if period == "leaderboard" then
+        self:_ApplyRowLayout("leaderboard")
+        self:_RefreshLeaderboard()
+        return
+    end
+
+    self:_ApplyRowLayout("items")
 
     -- Collect data
     local data        = {}
@@ -668,6 +899,7 @@ function Details:Refresh()
         end
 
         row.itemID = item.itemID
+        row.leaderboardData = nil
         row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
         row:SetWidth(self.content:GetWidth())
 
@@ -679,7 +911,12 @@ function Details:Refresh()
         end
 
         -- Icon
-        row.icon:SetTexture(item.icon or ICON_UNKNOWN)
+        if item.icon then
+            row.icon:SetTexture(item.icon)
+            row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        else
+            SetDefaultIcon(row.icon)
+        end
 
         -- Quality icons:
         -- 1 => bronze star, 2 => silver icon, 3 => gold icon.
@@ -725,6 +962,8 @@ function Details:Refresh()
         else
             row.valueText:SetText("|cffff8800Unknown value|r")
         end
+
+        row.pctText:SetJustifyH("RIGHT")
 
         -- Percent of total
         if totalCount > 0 then

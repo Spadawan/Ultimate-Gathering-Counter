@@ -389,12 +389,17 @@ function Tracker:ScanBags()
         end
     end
     -- One gathering action per category with gains in this scan
+    local hadGatherUpdate = false
     for cat, gainInfo in pairs(gainedCats) do
         UGC.DB:RecordGatherAction(cat)
         UGC.Session.gatherCount[cat] = (UGC.Session.gatherCount[cat] or 0) + 1
+        hadGatherUpdate = true
         if UGC.Progression then
             UGC.Progression:AddGatherAction(cat, gainInfo and gainInfo.itemID)
         end
+    end
+    if hadGatherUpdate and UGC.Community then
+        UGC.Community:BroadcastSnapshot(false)
     end
 
     -- Update all tracked items' bag counts
@@ -619,6 +624,9 @@ function Tracker:ResetSession()
         UGC.Progression:ResetChainState()
     end
     self:_buildSnapshot()
+    if UGC.Community then
+        UGC.Community:BroadcastSnapshot(true)
+    end
 end
 
 -------------------------------------------------------------------------------

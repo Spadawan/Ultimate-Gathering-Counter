@@ -11,6 +11,7 @@ Compat.lua
 Database.lua
 Tracker.lua
 Progression.lua
+Community.lua
 Overlay.lua
 Details.lua
 Config.lua
