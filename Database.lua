@@ -9,7 +9,7 @@ local UGC = _G.UGC
 UGC.DB = {}
 local DB = UGC.DB
 
-local SCHEMA_VERSION = 4
+local SCHEMA_VERSION = 5
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -46,6 +46,10 @@ local DEFAULTS = {
         ore     = { level = 1, xp = 0, totalHarvests = 0 },
         fish    = { level = 1, xp = 0, totalHarvests = 0 },
         leather = { level = 1, xp = 0, totalHarvests = 0 },
+    },
+    community = {
+        peers = {},
+        lastCleanup = 0,
     },
 }
 
@@ -96,6 +100,11 @@ function DB:Init()
                 fish    = { level = 1, xp = 0, totalHarvests = 0 },
                 leather = { level = 1, xp = 0, totalHarvests = 0 },
             }
+        end
+    end
+    if ver < 5 then
+        if not UGC_DB.community then
+            UGC_DB.community = { peers = {}, lastCleanup = 0 }
         end
     end
     if ver < SCHEMA_VERSION then
@@ -344,4 +353,58 @@ end
 -------------------------------------------------------------------------------
 function DB:GetSettings()
     return UGC_DB.settings
+end
+
+
+-------------------------------------------------------------------------------
+-- Community peer data
+-------------------------------------------------------------------------------
+local function _copyCounts(src)
+    return {
+        herbs = tonumber(src and src.herbs) or 0,
+        ore = tonumber(src and src.ore) or 0,
+        fish = tonumber(src and src.fish) or 0,
+        leather = tonumber(src and src.leather) or 0,
+    }
+end
+
+local function _copyProgress(src)
+    local out = {}
+    for _, cat in ipairs(UGC.CATEGORY_ORDER or { "herbs", "ore", "fish", "leather" }) do
+        local p = src and src[cat] or {}
+        out[cat] = {
+            level = math.max(1, tonumber(p.level) or 1),
+            title = tostring(p.title or "Novice"),
+        }
+    end
+    return out
+end
+
+function DB:GetCommunityPeers()
+    UGC_DB.community = UGC_DB.community or { peers = {}, lastCleanup = 0 }
+    UGC_DB.community.peers = UGC_DB.community.peers or {}
+    return UGC_DB.community.peers
+end
+
+function DB:UpsertCommunityPeer(name, payload)
+    if type(name) ~= "string" or name == "" or type(payload) ~= "table" then return end
+    local peers = self:GetCommunityPeers()
+    peers[name] = {
+        name = name,
+        updatedAt = tonumber(payload.updatedAt) or UGC.Compat:GetServerTime(),
+        totals = _copyCounts(payload.totals),
+        levels = _copyProgress(payload.levels),
+    }
+end
+
+function DB:PruneCommunityPeers(maxAgeSeconds)
+    local peers = self:GetCommunityPeers()
+    local now = UGC.Compat:GetServerTime()
+    maxAgeSeconds = tonumber(maxAgeSeconds) or (7 * 24 * 3600)
+    for name, peer in pairs(peers) do
+        if not peer or (now - (tonumber(peer.updatedAt) or 0)) > maxAgeSeconds then
+            peers[name] = nil
+        end
+    end
+    UGC_DB.community.lastCleanup = now
 end

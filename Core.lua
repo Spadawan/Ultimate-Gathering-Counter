@@ -14,6 +14,7 @@ eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 eventFrame:RegisterEvent("CHAT_MSG_LOOT")
 eventFrame:RegisterEvent("PLAYER_LOGOUT")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 
 -------------------------------------------------------------------------------
 -- Event dispatcher
@@ -31,6 +32,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         UGC.Overlay:Init()
         UGC.Details:Init()
         UGC.Config:Init()
+        if UGC.Community then
+            UGC.Community:Init()
+        end
 
         print(string.format(
             "|cff33E633Ultimate Gathering Counter|r v%s loaded.  "
@@ -65,6 +69,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
     elseif event == "CHAT_MSG_LOOT" then
         UGC.Tracker:ParseLootMessage(arg1)
 
+    elseif event == "CHAT_MSG_ADDON" then
+        local prefix, message, channel, sender = arg1, ...
+        if UGC.Community then
+            UGC.Community:OnAddonMessage(prefix, message, channel, sender)
+        end
+
     elseif event == "PLAYER_LOGOUT" then
         if UGC.Overlay then
             UGC.Overlay:SavePosition()
@@ -95,7 +105,7 @@ SlashCmdList["UGC"] = function(msg)
     elseif cmd == "config" or cmd == "options" or cmd == "settings" then
         UGC.Config:Toggle()
 
-    elseif cmd == "details" or cmd == "stats" or cmd == "history" then
+    elseif cmd == "details" or cmd == "stats" or cmd == "history" or cmd == "classement" or cmd == "leaderboard" then
         UGC.Details:Toggle()
 
     elseif cmd == "reset" then
@@ -116,6 +126,7 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc hide|r           Hide overlay")
         print("|cffffd700/ugc details|r        Open statistics window")
         print("|cffffd700/ugc config|r         Open settings panel")
+        print("|cffffd700/ugc classement|r     Open details/community leaderboard")
         print("|cffffd700/ugc reset|r          Reset current session counters")
         print("|cffffd700/ugc help|r           Show this help")
         if UGC.Compat:IsAddOnLoaded("Auctionator") then

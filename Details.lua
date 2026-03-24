@@ -30,6 +30,7 @@ local TABS = {
     { key = "weekly",   label = "This Week" },
     { key = "daily",    label = "Today"     },
     { key = "lastHour", label = "Last Hour" },
+    { key = "leaderboard", label = "Classement" },
 }
 
 local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -484,9 +485,9 @@ function Details:Init()
     itemColLbl:SetText("Item")
 
     -- Sortable headers
-    MakeSortHeader(colHdr, "Count",   208,  80, "count",  function() Details:Refresh() end)
-    MakeSortHeader(colHdr, "Value",   298, 120, "value",  function() Details:Refresh() end)
-    MakeSortHeader(colHdr, "% Total", 426,  80, "pct",    function() Details:Refresh() end)
+    self._countHeader = MakeSortHeader(colHdr, "Count",   208,  80, "count",  function() Details:Refresh() end)
+    self._valueHeader = MakeSortHeader(colHdr, "Value",   298, 120, "value",  function() Details:Refresh() end)
+    self._pctHeader   = MakeSortHeader(colHdr, "% Total", 426,  80, "pct",    function() Details:Refresh() end)
 
     -- Divider
     local div = f:CreateTexture(nil, "ARTWORK")
@@ -578,6 +579,115 @@ function Details:Toggle()
     end
 end
 
+
+function Details:_RefreshLeaderboard()
+    local peers = UGC.DB:GetCommunityPeers() or {}
+    local localName = UGC.Community and UGC.Community:_getPlayerName() or UnitName("player") or "You"
+    local rows = {}
+
+    for name, peer in pairs(peers) do
+        local t = peer.totals or {}
+        local levels = peer.levels or {}
+        local total = (t.herbs or 0) + (t.ore or 0) + (t.fish or 0) + (t.leather or 0)
+        local levelSum = 0
+        local titleParts = {}
+        for _, cat in ipairs(PROF_ORDER) do
+            local lvl = tonumber(levels[cat] and levels[cat].level) or 1
+            levelSum = levelSum + lvl
+            local title = tostring(levels[cat] and levels[cat].title or "Novice")
+            local c = UGC.CATEGORIES[cat]
+            table.insert(titleParts, string.format("|cff%s%s|r:%s", c.hex, c.label:sub(1,1), title))
+        end
+
+        table.insert(rows, {
+            name = name,
+            total = total,
+            totals = t,
+            levelSummary = string.format("L%d", levelSum),
+            titles = table.concat(titleParts, "  "),
+            updatedAt = tonumber(peer.updatedAt) or 0,
+        })
+    end
+
+    table.sort(rows, function(a, b)
+        if a.total == b.total then
+            return a.name < b.name
+        end
+        return a.total > b.total
+    end)
+
+    for _, row in ipairs(self.rows) do row:Hide() end
+
+    local yOffset = 0
+    local grandTotal = 0
+    local playerRank = nil
+
+    for i, entry in ipairs(rows) do
+        grandTotal = grandTotal + (entry.total or 0)
+        if entry.name == localName then
+            playerRank = i
+        end
+
+        local row = self.rows[i]
+        if not row then
+            row = self:_CreateRow(self.content)
+            self.rows[i] = row
+        end
+
+        row.itemID = nil
+        row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
+        row:SetWidth(self.content:GetWidth())
+
+        if i % 2 == 0 then
+            row.bg:SetColorTexture(1, 1, 1, 0.03)
+        else
+            row.bg:SetColorTexture(0, 0, 0, 0)
+        end
+
+        row.icon:SetTexture(ICON_UNKNOWN)
+        for k = 1, 3 do row.qualityStars[k]:Hide() end
+
+        local t = entry.totals
+        row.nameText:SetText(string.format("#%d |cff33E633%s|r  |cff888888(H:%d O:%d F:%d L:%d)|r",
+            i, entry.name, t.herbs or 0, t.ore or 0, t.fish or 0, t.leather or 0))
+        row.countText:SetText(tostring(entry.total))
+        row.valueText:SetText(entry.levelSummary)
+        row.pctText:SetText(entry.titles)
+        row.pctText:SetJustifyH("LEFT")
+
+        row:Show()
+        yOffset = yOffset + ROW_HEIGHT + 1
+    end
+
+    if #rows == 0 then
+        if not self._emptyText then
+            self._emptyText = self.content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+            self._emptyText:SetPoint("TOP", self.content, "TOP", 0, -20)
+            self._emptyText:SetText("Aucune donnée communautaire reçue pour le canal UGC.")
+            self._emptyText:SetJustifyH("CENTER")
+            self._emptyText:SetWidth(self.content:GetWidth())
+        end
+        self._emptyText:Show()
+        yOffset = 50
+    elseif self._emptyText then
+        self._emptyText:Hide()
+    end
+
+    self.content:SetHeight(math.max(yOffset, 20))
+
+    if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Actions") end
+    if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Niveaux") end
+    if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("Titres") end
+
+    local rankText = playerRank and ("#" .. playerRank) or "N/A"
+    self._summaryLine1:SetText(string.format(
+        "Canal |cff33E633UGC|r  |  Joueurs: %d  |  Actions partagées: %d",
+        #rows, grandTotal))
+    self._summaryLine2:SetText(string.format(
+        "Votre rang: |cffffd700%s|r  |  Astuce: invitez d'autres joueurs à rejoindre le canal UGC.",
+        rankText))
+end
+
 -------------------------------------------------------------------------------
 -- Refresh — rebuilds table from current data/filter/tab
 -------------------------------------------------------------------------------
@@ -616,6 +726,15 @@ function Details:Refresh()
     local period    = self._currentTab    or "allTime"
     local catFilter = (self._currentFilter ~= "all") and self._currentFilter or nil
     local settings  = UGC.DB:GetSettings()
+
+    if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Count") end
+    if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Value") end
+    if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("% Total") end
+
+    if period == "leaderboard" then
+        self:_RefreshLeaderboard()
+        return
+    end
 
     -- Collect data
     local data        = {}
@@ -725,6 +844,8 @@ function Details:Refresh()
         else
             row.valueText:SetText("|cffff8800Unknown value|r")
         end
+
+        row.pctText:SetJustifyH("RIGHT")
 
         -- Percent of total
         if totalCount > 0 then
