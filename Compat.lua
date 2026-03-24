@@ -126,10 +126,11 @@ function Compat:GetItemCategoryFromInfo(itemID)
         if haystack:find("fish", 1, true) or haystack:find("poisson", 1, true) then
             return "fish"
         end
-        if haystack:find("leather", 1, true) or haystack:find("cuir", 1, true)
+        local isEquipment = (classID == LE_ITEM_CLASS_WEAPON) or (classID == LE_ITEM_CLASS_ARMOR)
+        if not isEquipment and (haystack:find("leather", 1, true) or haystack:find("cuir", 1, true)
             or haystack:find("hide", 1, true) or haystack:find("peau", 1, true)
             or haystack:find("scale", 1, true) or haystack:find("écaille", 1, true)
-            or haystack:find("bone", 1, true) or haystack:find("os", 1, true) then
+            or haystack:find("bone", 1, true) or haystack:find("os", 1, true)) then
             return "leather"
         end
     end
