@@ -59,6 +59,22 @@ local function _isNonGatherReceiveMessage(msg)
     return false
 end
 
+local function _isNonGatherContextOpen()
+    if MailFrame and MailFrame.IsShown and MailFrame:IsShown() then
+        return true
+    end
+    if OpenMailFrame and OpenMailFrame.IsShown and OpenMailFrame:IsShown() then
+        return true
+    end
+    if SendMailFrame and SendMailFrame.IsShown and SendMailFrame:IsShown() then
+        return true
+    end
+    if TradeFrame and TradeFrame.IsShown and TradeFrame:IsShown() then
+        return true
+    end
+    return false
+end
+
 local function GetDynamicCategoryFromItemInfo(itemID)
     local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
@@ -526,6 +542,9 @@ end
 function Tracker:ParseLootMessage(msg)
     if not msg then return end
     if _isNonGatherReceiveMessage(msg) then
+        return
+    end
+    if _isNonGatherContextOpen() then
         return
     end
 
