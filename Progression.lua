@@ -11,6 +11,10 @@ local Progression = UGC.Progression
 local MAX_LEVEL = 100
 local XP_PER_HARVEST = 10
 local GAIN_POPUP_SECONDS = 1.8
+local BONUS_XP_BY_ITEM_ID = {
+    [236780] = 100, -- Lotus nocturne
+    [237366] = 100, -- Thorium éblouissant
+}
 
 local BASE_REQUIREMENTS = {
     [1] = 10,
@@ -144,7 +148,14 @@ function Progression:_AnnounceCenter(message)
     end
 end
 
-function Progression:AddGatherAction(category)
+function Progression:GetGatherXPGain(itemID)
+    if itemID and BONUS_XP_BY_ITEM_ID[itemID] then
+        return BONUS_XP_BY_ITEM_ID[itemID]
+    end
+    return XP_PER_HARVEST
+end
+
+function Progression:AddGatherAction(category, itemID)
     if not category or not UGC.CATEGORIES[category] then return end
 
     local state = UGC.DB:GetProfessionProgress(category)
@@ -152,7 +163,7 @@ function Progression:AddGatherAction(category)
         return
     end
 
-    local xpGain = XP_PER_HARVEST
+    local xpGain = self:GetGatherXPGain(itemID)
     state.totalHarvests = (state.totalHarvests or 0) + 1
     state.xp = (state.xp or 0) + xpGain
 
