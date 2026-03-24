@@ -20,6 +20,33 @@ local LOOT_CONFIRM_WINDOW = 15
 local ITEM_CLASS_WEAPON = 2
 local ITEM_CLASS_ARMOR = 4
 
+local function GetItemClassInfo(itemID)
+    local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
+    if classID and subClassID then
+        return classID, subClassID
+    end
+
+    if C_Item and C_Item.GetItemInfoInstant then
+        local _, _, _, _, _, _, _, _, _, _, _, cID, scID = C_Item.GetItemInfoInstant(itemID)
+        if cID or scID then
+            return cID, scID
+        end
+        local _, _, _, _, _, legacyCID, legacySCID = C_Item.GetItemInfoInstant(itemID)
+        return legacyCID, legacySCID
+    end
+
+    if GetItemInfoInstant then
+        local _, _, _, _, _, _, _, _, _, _, _, cID, scID = GetItemInfoInstant(itemID)
+        if cID or scID then
+            return cID, scID
+        end
+        local _, _, _, _, _, legacyCID, legacySCID = GetItemInfoInstant(itemID)
+        return legacyCID, legacySCID
+    end
+
+    return nil, nil
+end
+
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
     startTime    = 0,
@@ -49,7 +76,7 @@ function Tracker:_isExcludedLeatherEquipment(itemID, category)
         return false
     end
 
-    local classID = UGC.Compat:GetItemClassInfo(itemID)
+    local classID = GetItemClassInfo(itemID)
     if classID == ITEM_CLASS_WEAPON or classID == ITEM_CLASS_ARMOR then
         return true
     end
