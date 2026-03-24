@@ -26,7 +26,8 @@ UGC.CATEGORY_ORDER = { "herbs", "ore", "fish", "leather" }
 UGC.SUBCLASS_MAP = {
     [7] = {
         [7]  = "ore",      -- Metal & Stone
-        [8]  = "leather",  -- Leather
+        -- [8] intentionally not mapped dynamically: this subtype is noisy on
+        -- Retail and can include non-skinning materials (notably fish-like items).
         [9]  = "herbs",    -- Herb
     },
     [2] = {
