@@ -45,6 +45,7 @@ UGC.ITEM_DB = {}
 UGC.EXCLUDED_ITEM_IDS = {
     [242640] = true, -- Plant Protein
     [242639] = true, -- Presque du porc / Almost Pork
+    [265800] = true, -- Garniture terreuse / Earthly Dressing
 }
 
 local function addItems(category, tbl)
