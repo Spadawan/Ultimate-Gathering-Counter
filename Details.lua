@@ -614,6 +614,7 @@ function Details:Refresh()
     local totalCopper = 0
 
     for itemID, itemData in pairs(UGC.ITEM_DB) do
+        if not (UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID]) then
         local cat = itemData.category
         if (not catFilter or cat == catFilter)
            and settings.showCategories[cat] then
@@ -641,6 +642,7 @@ function Details:Refresh()
                     hasPrice = (price ~= nil),
                 })
             end
+        end
         end
     end
 

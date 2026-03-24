@@ -50,7 +50,9 @@ UGC.EXCLUDED_ITEM_IDS = {
 
 local function addItems(category, tbl)
     for id, name in pairs(tbl) do
-        UGC.ITEM_DB[id] = { category = category, hint = name }
+        if not UGC.EXCLUDED_ITEM_IDS[id] then
+            UGC.ITEM_DB[id] = { category = category, hint = name }
+        end
     end
 end
 

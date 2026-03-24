@@ -148,6 +148,13 @@ UGC.Session = {
 function Tracker:Init()
     _initialized  = false  -- block ScanBags during snapshot
     _firstScanDone = false -- next ScanBags call will re-seed, not record gains
+
+    if UGC.EXCLUDED_ITEM_IDS then
+        for itemID in pairs(UGC.EXCLUDED_ITEM_IDS) do
+            UGC.ITEM_DB[itemID] = nil
+        end
+    end
+
     UGC.Session.startTime = GetTime()
     wipe(UGC.Session.items)
     wipe(UGC.Session.bagSnapshot)
@@ -474,6 +481,9 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
     local result    = {}
 
     for itemID, data in pairs(UGC.ITEM_DB) do
+        if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+            UGC.ITEM_DB[itemID] = nil
+        else
         local cat = data.category
         if (not categoryFilter or categoryFilter == cat)
            and settings.showCategories[cat] then
@@ -500,6 +510,7 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
                     hourlyRate    = self:GetHourlyRate(itemID),
                 })
             end
+        end
         end
     end
 
