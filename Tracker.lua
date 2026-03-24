@@ -19,13 +19,29 @@ local _firstScanDone = false
 local LOOT_CONFIRM_WINDOW = 15
 local ITEM_CLASS_WEAPON = 2
 local ITEM_CLASS_ARMOR = 4
+local SKILLLINE_BY_CATEGORY = {
+    herbs   = 182, -- Herbalism
+    ore     = 186, -- Mining
+    fish    = 356, -- Fishing
+    leather = 393, -- Skinning
+}
 
 local function GetDynamicCategoryFromItemInfo(itemID)
     local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
+    -- Retail-first strict detection based on profession reagent source.
+    if C_TradeSkillUI and C_TradeSkillUI.IsReagentInSkillLine then
+        for cat, skillLineID in pairs(SKILLLINE_BY_CATEGORY) do
+            local ok, isInSkillLine = pcall(C_TradeSkillUI.IsReagentInSkillLine, itemID, skillLineID)
+            if ok and isInSkillLine then
+                return cat
+            end
+        end
+    end
+
     -- Strict class/subclass-only classification (no keyword heuristics):
     -- - Trade Goods/Reagents mapped via UGC.SUBCLASS_MAP
-    -- - Fishing and skinning are strict-list only via UGC.ITEM_DB
+    -- - Fish/leather fallback stays unassigned unless identified via skill-line API
     if classID and subClassID then
         local classMap = UGC.SUBCLASS_MAP[classID]
         if classMap and classMap[subClassID] then

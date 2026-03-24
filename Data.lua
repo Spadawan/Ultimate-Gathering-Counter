@@ -28,8 +28,9 @@ UGC.SUBCLASS_MAP = {
         [7]  = "ore",      -- Metal & Stone
         [9]  = "herbs",    -- Herb
     },
-    -- Fishing and skinning are strict-list only (ITEM_DB entries), so no
-    -- dynamic subclass mapping for those categories.
+    -- Fishing and skinning are intentionally not mapped via subclass here.
+    -- Retail runtime can resolve them via profession skill-line APIs; fallback
+    -- behavior keeps unknown items unassigned.
 }
 
 -- Item database: [itemID] = { category = string, hint = string }
