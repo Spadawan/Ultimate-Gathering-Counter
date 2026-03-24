@@ -17,6 +17,35 @@ local _initialized = false
 -- snapshot without counting anything as gained (avoids "+500 Hochenblume" on login).
 local _firstScanDone = false
 local LOOT_CONFIRM_WINDOW = 15
+local ITEM_CLASS_WEAPON = 2
+local ITEM_CLASS_ARMOR = 4
+
+local function GetItemClassInfo(itemID)
+    local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
+    if classID and subClassID then
+        return classID, subClassID
+    end
+
+    if C_Item and C_Item.GetItemInfoInstant then
+        local _, _, _, _, _, _, _, _, _, _, _, cID, scID = C_Item.GetItemInfoInstant(itemID)
+        if cID or scID then
+            return cID, scID
+        end
+        local _, _, _, _, _, legacyCID, legacySCID = C_Item.GetItemInfoInstant(itemID)
+        return legacyCID, legacySCID
+    end
+
+    if GetItemInfoInstant then
+        local _, _, _, _, _, _, _, _, _, _, _, cID, scID = GetItemInfoInstant(itemID)
+        if cID or scID then
+            return cID, scID
+        end
+        local _, _, _, _, _, legacyCID, legacySCID = GetItemInfoInstant(itemID)
+        return legacyCID, legacySCID
+    end
+
+    return nil, nil
+end
 
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
@@ -42,6 +71,30 @@ function Tracker:Init()
     _initialized = true  -- safe to process bag events from now on
 end
 
+function Tracker:_isExcludedLeatherEquipment(itemID, category)
+    if category ~= "leather" then
+        return false
+    end
+
+    local classID = GetItemClassInfo(itemID)
+    if classID == ITEM_CLASS_WEAPON or classID == ITEM_CLASS_ARMOR then
+        return true
+    end
+
+    -- Fallback when class info is unavailable/incomplete on some clients.
+    local _, _, _, _, _, itemType = GetItemInfo(itemID)
+
+    if type(itemType) == "string" then
+        local t = string.lower(itemType)
+        if t == "weapon" or t == "arme" or t == "waffe"
+            or t == "armor" or t == "armure" or t == "rüstung" then
+            return true
+        end
+    end
+
+    return false
+end
+
 function Tracker:_captureSnapshot()
     local settings = UGC.DB:GetSettings()
     local snapshot = {}
@@ -53,9 +106,14 @@ function Tracker:_captureSnapshot()
                 local itemID, stackCount = self:_getSlotInfo(bag, slot)
                 if itemID then
                     if UGC.ITEM_DB[itemID] then
-                        snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
-                        if not UGC.DB:GetCachedItem(itemID) then
-                            self:RequestItemCache(itemID)
+                        local knownCategory = UGC.ITEM_DB[itemID].category
+                        if not self:_isExcludedLeatherEquipment(itemID, knownCategory) then
+                            snapshot[itemID] = (snapshot[itemID] or 0) + stackCount
+                            if not UGC.DB:GetCachedItem(itemID) then
+                                self:RequestItemCache(itemID)
+                            end
+                        else
+                            UGC.ITEM_DB[itemID] = nil
                         end
                     else
                         -- Attempt dynamic detection without recording
@@ -265,6 +323,11 @@ end
 function Tracker:DetectItemCategory(itemID)
     local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
     local cat = UGC.Compat:GetItemCategoryFromInfo(itemID)
+
+    if self:_isExcludedLeatherEquipment(itemID, cat) then
+        return nil
+    end
+
     if cat and name and texture then
         UGC.DB:CacheItem(itemID, name, texture, GetDisplayQuality(itemID, quality))
     end
@@ -400,6 +463,10 @@ function Tracker:ParseLootMessage(msg)
     local cat
     if UGC.ITEM_DB[itemID] then
         cat = UGC.ITEM_DB[itemID].category
+        if self:_isExcludedLeatherEquipment(itemID, cat) then
+            UGC.ITEM_DB[itemID] = nil
+            cat = nil
+        end
     elseif settings.chatLootDetect then
         -- Try to detect and register for future bag scans
         cat = self:DetectItemCategory(itemID)

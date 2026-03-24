@@ -103,8 +103,7 @@ function Compat:GetContainerItemInfo(bag, slot)
 end
 
 function Compat:GetItemCategoryFromInfo(itemID)
-    local _, _, _, _, _, itemType, itemSubType = GetItemInfo(itemID)
-    local _, _, _, _, classID, subClassID = self:GetItemInfoInstant(itemID)
+    local _, _, _, _, _, itemType, itemSubType, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
     if classID and subClassID then
         local classMap = UGC.SUBCLASS_MAP[classID]
