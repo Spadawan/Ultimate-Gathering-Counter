@@ -26,6 +26,48 @@ local SKILLLINE_BY_CATEGORY = {
     leather = 393, -- Skinning
 }
 
+local function _extractLootPrefix(fmt)
+    if type(fmt) ~= "string" or fmt == "" then
+        return nil
+    end
+    local sPos = fmt:find("%%s", 1, true)
+    local dPos = fmt:find("%%d", 1, true)
+    local cut = nil
+    if sPos and dPos then
+        cut = math.min(sPos, dPos)
+    else
+        cut = sPos or dPos
+    end
+    if not cut then
+        return fmt
+    end
+    return fmt:sub(1, cut - 1)
+end
+
+local LOOT_PREFIXES = {
+    _extractLootPrefix(_G.LOOT_ITEM_SELF),
+    _extractLootPrefix(_G.LOOT_ITEM_SELF_MULTIPLE),
+}
+
+local function _isSelfLootMessage(msg)
+    if type(msg) ~= "string" or msg == "" then return false end
+    local hasPrefix = false
+    for _, prefix in ipairs(LOOT_PREFIXES) do
+        if prefix and prefix ~= "" and msg:sub(1, #prefix) == prefix then
+            return true
+        end
+        if prefix and prefix ~= "" then
+            hasPrefix = true
+        end
+    end
+    -- Fallback safety for clients where globals are unavailable: keep legacy
+    -- behavior instead of blocking all loot processing.
+    if not hasPrefix then
+        return true
+    end
+    return false
+end
+
 local function GetDynamicCategoryFromItemInfo(itemID)
     local _, _, _, _, _, _, _, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
@@ -492,6 +534,9 @@ end
 -------------------------------------------------------------------------------
 function Tracker:ParseLootMessage(msg)
     if not msg then return end
+    if not _isSelfLootMessage(msg) then
+        return
+    end
 
     local itemLink = msg:match("|H(item:[^|]+)|h")
     if not itemLink then return end
