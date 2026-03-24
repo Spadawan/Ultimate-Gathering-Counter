@@ -39,9 +39,14 @@ local function GetDynamicCategoryFromItemInfo(itemID)
         end
     end
 
-    -- Strict class/subclass-only classification (no keyword heuristics):
-    -- - Trade Goods/Reagents mapped via UGC.SUBCLASS_MAP
-    -- - Fish/leather fallback stays unassigned unless identified via skill-line API
+    -- Fallback classifier (localized type/subtype + class/subclass mapping).
+    if UGC.Compat and UGC.Compat.GetItemCategoryFromInfo then
+        local cat = UGC.Compat:GetItemCategoryFromInfo(itemID)
+        if cat then
+            return cat
+        end
+    end
+
     if classID and subClassID then
         local classMap = UGC.SUBCLASS_MAP[classID]
         if classMap and classMap[subClassID] then

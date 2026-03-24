@@ -26,11 +26,12 @@ UGC.CATEGORY_ORDER = { "herbs", "ore", "fish", "leather" }
 UGC.SUBCLASS_MAP = {
     [7] = {
         [7]  = "ore",      -- Metal & Stone
+        [8]  = "leather",  -- Leather / scales (broad subtype, refined by runtime checks)
         [9]  = "herbs",    -- Herb
     },
-    -- Fishing and skinning are intentionally not mapped via subclass here.
-    -- Retail runtime can resolve them via profession skill-line APIs; fallback
-    -- behavior keeps unknown items unassigned.
+    [2] = {
+        [47] = "fish",     -- Fish (Consumable subtype)
+    },
 }
 
 -- Item database: [itemID] = { category = string, hint = string }
