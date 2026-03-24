@@ -44,26 +44,17 @@ local function _extractLootPrefix(fmt)
     return fmt:sub(1, cut - 1)
 end
 
-local LOOT_PREFIXES = {
-    _extractLootPrefix(_G.LOOT_ITEM_SELF),
-    _extractLootPrefix(_G.LOOT_ITEM_SELF_MULTIPLE),
+local NON_GATHER_PREFIXES = {
+    _extractLootPrefix(_G.LOOT_ITEM_PUSHED_SELF),
+    _extractLootPrefix(_G.LOOT_ITEM_PUSHED_SELF_MULTIPLE),
 }
 
-local function _isSelfLootMessage(msg)
+local function _isNonGatherReceiveMessage(msg)
     if type(msg) ~= "string" or msg == "" then return false end
-    local hasPrefix = false
-    for _, prefix in ipairs(LOOT_PREFIXES) do
+    for _, prefix in ipairs(NON_GATHER_PREFIXES) do
         if prefix and prefix ~= "" and msg:sub(1, #prefix) == prefix then
             return true
         end
-        if prefix and prefix ~= "" then
-            hasPrefix = true
-        end
-    end
-    -- Fallback safety for clients where globals are unavailable: keep legacy
-    -- behavior instead of blocking all loot processing.
-    if not hasPrefix then
-        return true
     end
     return false
 end
@@ -534,7 +525,7 @@ end
 -------------------------------------------------------------------------------
 function Tracker:ParseLootMessage(msg)
     if not msg then return end
-    if not _isSelfLootMessage(msg) then
+    if _isNonGatherReceiveMessage(msg) then
         return
     end
 
