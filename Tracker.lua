@@ -17,6 +17,8 @@ local _initialized = false
 -- snapshot without counting anything as gained (avoids "+500 Hochenblume" on login).
 local _firstScanDone = false
 local LOOT_CONFIRM_WINDOW = 15
+local ITEM_CLASS_WEAPON = 2
+local ITEM_CLASS_ARMOR = 4
 
 -- In-memory session data — never persisted to SavedVariables
 UGC.Session = {
@@ -265,6 +267,14 @@ end
 function Tracker:DetectItemCategory(itemID)
     local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
     local cat = UGC.Compat:GetItemCategoryFromInfo(itemID)
+
+    if cat == "leather" then
+        local _, _, _, _, classID = UGC.Compat:GetItemInfoInstant(itemID)
+        if classID == ITEM_CLASS_WEAPON or classID == ITEM_CLASS_ARMOR then
+            return nil
+        end
+    end
+
     if cat and name and texture then
         UGC.DB:CacheItem(itemID, name, texture, GetDisplayQuality(itemID, quality))
     end
