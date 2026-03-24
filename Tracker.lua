@@ -359,7 +359,7 @@ function Tracker:ScanBags()
 
     -- Compute deltas against previous snapshot
     local oldSnapshot = UGC.Session.bagSnapshot
-    local gainedCats  = {}  -- categories with positive delta this scan
+    local gainedCats  = {}  -- [cat] = { itemID = bestItemID, xpGain = N }
     for itemID, newCount in pairs(newSnapshot) do
         local oldCount = oldSnapshot[itemID] or 0
         local delta    = newCount - oldCount
@@ -372,17 +372,25 @@ function Tracker:ScanBags()
                 UGC.Session.items[itemID].gained = UGC.Session.items[itemID].gained + confirmedDelta
                 UGC.DB:RecordGain(itemID, confirmedDelta)
                 if cat then
-                    gainedCats[cat] = true
+                    local xpGain = 10
+                    if UGC.Progression and UGC.Progression.GetGatherXPGain then
+                        xpGain = UGC.Progression:GetGatherXPGain(itemID)
+                    end
+
+                    local existing = gainedCats[cat]
+                    if not existing or xpGain > (existing.xpGain or 0) then
+                        gainedCats[cat] = { itemID = itemID, xpGain = xpGain }
+                    end
                 end
             end
         end
     end
     -- One gathering action per category with gains in this scan
-    for cat in pairs(gainedCats) do
+    for cat, gainInfo in pairs(gainedCats) do
         UGC.DB:RecordGatherAction(cat)
         UGC.Session.gatherCount[cat] = (UGC.Session.gatherCount[cat] or 0) + 1
         if UGC.Progression then
-            UGC.Progression:AddGatherAction(cat)
+            UGC.Progression:AddGatherAction(cat, gainInfo and gainInfo.itemID)
         end
     end
 
