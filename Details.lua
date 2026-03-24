@@ -12,6 +12,10 @@ local Details = UGC.Details
 local WINDOW_WIDTH  = 530
 local WINDOW_HEIGHT = 480
 local ROW_HEIGHT    = 22
+local STAR_BRONZE   = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star"
+local STAR_SILVER   = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star_silver"
+local STAR_GOLD     = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star_gold"
+local STAR_FALLBACK = "Interface\\Common\\ReputationStar"
 
 -- Quality star texture (same as overlay)
 local QUALITY_COLORS = {
@@ -677,16 +681,35 @@ function Details:Refresh()
         -- Icon
         row.icon:SetTexture(item.icon or ICON_UNKNOWN)
 
-        -- Quality stars
-        local q   = item.quality
-        local col = q and QUALITY_COLORS[q]
+        -- Quality icons:
+        -- 1 => bronze star, 2 => silver icon, 3 => gold icon.
+        local q = item.quality
         for i = 1, 3 do
-            if col and i <= q then
-                row.qualityStars[i]:SetVertexColor(col[1], col[2], col[3])
-                row.qualityStars[i]:Show()
-            else
-                row.qualityStars[i]:Hide()
+            row.qualityStars[i]:Hide()
+        end
+
+        if q == 1 then
+            local col = QUALITY_COLORS[1]
+            local ok = row.qualityStars[1]:SetTexture(STAR_BRONZE)
+            if ok == false then
+                row.qualityStars[1]:SetTexture(STAR_FALLBACK)
             end
+            row.qualityStars[1]:SetVertexColor(col[1], col[2], col[3])
+            row.qualityStars[1]:Show()
+        elseif q == 2 then
+            local ok = row.qualityStars[1]:SetTexture(STAR_SILVER)
+            if ok == false then
+                row.qualityStars[1]:SetTexture(STAR_FALLBACK)
+            end
+            row.qualityStars[1]:SetVertexColor(1, 1, 1)
+            row.qualityStars[1]:Show()
+        elseif q == 3 then
+            local ok = row.qualityStars[1]:SetTexture(STAR_GOLD)
+            if ok == false then
+                row.qualityStars[1]:SetTexture(STAR_FALLBACK)
+            end
+            row.qualityStars[1]:SetVertexColor(1, 1, 1)
+            row.qualityStars[1]:Show()
         end
 
         -- Name (color-coded by category)
