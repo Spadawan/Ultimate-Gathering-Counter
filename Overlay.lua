@@ -16,7 +16,7 @@ local OVERLAY_HEIGHT = 360   -- default; resizes based on content, capped
 local MAX_HEIGHT     = 520
 local MIN_HEIGHT     = 90
 local ROW_HEIGHT     = 24
-local HDR_HEIGHT     = 22
+local HDR_HEIGHT     = 34
 local PADDING        = 6
 
 -- Question mark fallback icon
@@ -152,17 +152,36 @@ local function CreateSectionHeader(parent, cat)
 
     -- Collapse/expand arrow indicator
     hdr.arrow = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hdr.arrow:SetPoint("LEFT", hdr, "LEFT", 6, 0)
+    hdr.arrow:SetPoint("TOPLEFT", hdr, "TOPLEFT", 6, -5)
     hdr.arrow:SetTextColor(0.8, 0.8, 0.8)
     hdr.arrow:SetText("-")
 
     hdr.label = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hdr.label:SetPoint("LEFT", hdr, "LEFT", 20, 0)
+    hdr.label:SetPoint("TOPLEFT", hdr, "TOPLEFT", 20, -5)
     hdr.label:SetTextColor(catData.color.r, catData.color.g, catData.color.b)
 
     hdr.count = hdr:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hdr.count:SetPoint("RIGHT", hdr, "RIGHT", -8, 0)
+    hdr.count:SetPoint("TOPRIGHT", hdr, "TOPRIGHT", -8, -5)
     hdr.count:SetTextColor(0.75, 0.75, 0.75)
+
+    hdr.xpBg = hdr:CreateTexture(nil, "BORDER")
+    hdr.xpBg:SetPoint("BOTTOMLEFT", hdr, "BOTTOMLEFT", 20, 5)
+    hdr.xpBg:SetHeight(10)
+    hdr.xpBg:SetColorTexture(0, 0, 0, 0.55)
+
+    hdr.xpFill = hdr:CreateTexture(nil, "ARTWORK")
+    hdr.xpFill:SetPoint("LEFT", hdr.xpBg, "LEFT", 0, 0)
+    hdr.xpFill:SetHeight(10)
+    hdr.xpFill:SetColorTexture(catData.color.r, catData.color.g, catData.color.b, 0.95)
+
+    hdr.xpText = hdr:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    hdr.xpText:SetPoint("CENTER", hdr.xpBg, "CENTER", 0, 0)
+    hdr.xpText:SetTextColor(0.95, 0.95, 0.95)
+
+    hdr.gainText = hdr:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    hdr.gainText:SetPoint("LEFT", hdr.xpBg, "RIGHT", 6, 0)
+    hdr.gainText:SetTextColor(0.2, 1.0, 0.2)
+    hdr.gainText:SetText("")
 
     -- Hover highlight
     hdr:SetScript("OnEnter", function(self)
@@ -571,6 +590,36 @@ function Overlay:Refresh()
             hdr:SetPoint("TOPLEFT",  self.content, "TOPLEFT",  0, -yOffset)
             hdr:SetWidth(self.content:GetWidth())
             hdr:Show()
+
+            local prog = UGC.Progression and UGC.Progression:GetProgress(currentCat)
+            if prog then
+                local catTitle = prog.title or "Novice"
+                hdr.label:SetText(string.format("%s  Lv.%d", catData.label:upper(), prog.level))
+                hdr.count:SetText(string.format("%d items  •  %s", catCounts[currentCat], catTitle))
+
+                local barWidth = math.max(70, self.content:GetWidth() - 130)
+                hdr.xpBg:SetWidth(barWidth)
+                local pct = 0
+                if prog.reqXP > 0 then
+                    pct = math.min(1, prog.xp / prog.reqXP)
+                end
+                hdr.xpFill:SetWidth(math.max(1, barWidth * pct))
+                hdr.xpText:SetText(string.format("%d / %d EXP", prog.xp, prog.reqXP))
+
+                local recentGain = UGC.Progression:GetRecentGain(currentCat)
+                if recentGain then
+                    hdr.gainText:SetText(string.format("+%d EXP", recentGain))
+                else
+                    hdr.gainText:SetText("")
+                end
+            else
+                hdr.label:SetText(catData.label:upper())
+                hdr.count:SetText(catCounts[currentCat] .. " items")
+                hdr.xpBg:SetWidth(math.max(70, self.content:GetWidth() - 130))
+                hdr.xpFill:SetWidth(1)
+                hdr.xpText:SetText("")
+                hdr.gainText:SetText("")
+            end
             yOffset = yOffset + HDR_HEIGHT + 1
         end
 

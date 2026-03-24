@@ -29,6 +29,37 @@ local TABS = {
 }
 
 local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
+local PROF_ORDER = { "herbs", "ore", "fish", "leather" }
+
+local function CreateProgressRow(parent)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetHeight(18)
+
+    row.label = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.label:SetPoint("LEFT", row, "LEFT", 4, 0)
+    row.label:SetWidth(138)
+    row.label:SetJustifyH("LEFT")
+
+    row.barBg = row:CreateTexture(nil, "BORDER")
+    row.barBg:SetPoint("LEFT", row, "LEFT", 144, 0)
+    row.barBg:SetHeight(11)
+    row.barBg:SetColorTexture(0, 0, 0, 0.6)
+
+    row.barFill = row:CreateTexture(nil, "ARTWORK")
+    row.barFill:SetPoint("LEFT", row.barBg, "LEFT", 0, 0)
+    row.barFill:SetHeight(11)
+
+    row.barText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.barText:SetPoint("CENTER", row.barBg, "CENTER", 0, 0)
+    row.barText:SetTextColor(0.92, 0.92, 0.92)
+
+    row.gainText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.gainText:SetPoint("LEFT", row.barBg, "RIGHT", 6, 0)
+    row.gainText:SetTextColor(0.2, 1.0, 0.2)
+    row.gainText:SetText("")
+
+    return row
+end
 
 -------------------------------------------------------------------------------
 -- Helpers
@@ -409,9 +440,26 @@ function Details:Init()
     self:_SetActiveFilter("all")
 
     -- ── Column headers ────────────────────────────────────────────────
+    local profPanel = CreateFrame("Frame", nil, f)
+    profPanel:SetPoint("TOPLEFT",  f, "TOPLEFT",  6, -78)
+    profPanel:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, -78)
+    profPanel:SetHeight(84)
+
+    local profBg = profPanel:CreateTexture(nil, "BACKGROUND")
+    profBg:SetAllPoints()
+    profBg:SetColorTexture(0.04, 0.04, 0.04, 0.95)
+
+    self._professionRows = {}
+    for i, cat in ipairs(PROF_ORDER) do
+        local row = CreateProgressRow(profPanel)
+        row:SetPoint("TOPLEFT", profPanel, "TOPLEFT", 4, -((i - 1) * 20 + 2))
+        row:SetPoint("TOPRIGHT", profPanel, "TOPRIGHT", -6, -((i - 1) * 20 + 2))
+        self._professionRows[cat] = row
+    end
+
     local colHdr = CreateFrame("Frame", nil, f)
-    colHdr:SetPoint("TOPLEFT",  f, "TOPLEFT",   6, -78)
-    colHdr:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, -78)
+    colHdr:SetPoint("TOPLEFT",  f, "TOPLEFT",   6, -164)
+    colHdr:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, -164)
     colHdr:SetHeight(16)
 
     local colHdrBg = colHdr:CreateTexture(nil, "BACKGROUND")
@@ -433,15 +481,15 @@ function Details:Init()
 
     -- Divider
     local div = f:CreateTexture(nil, "ARTWORK")
-    div:SetPoint("TOPLEFT",  f, "TOPLEFT",   8, -95)
-    div:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, -95)
+    div:SetPoint("TOPLEFT",  f, "TOPLEFT",   8, -181)
+    div:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, -181)
     div:SetHeight(1)
     div:SetColorTexture(0.35, 0.35, 0.35, 0.6)
 
     -- ── Scroll frame ──────────────────────────────────────────────────
     local scrollFrame = CreateFrame("ScrollFrame", "UGC_DetailsScroll", f,
                                     "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT",     f, "TOPLEFT",    6, -98)
+    scrollFrame:SetPoint("TOPLEFT",     f, "TOPLEFT",    6, -184)
     scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 96)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
@@ -526,6 +574,32 @@ end
 -------------------------------------------------------------------------------
 function Details:Refresh()
     if not self.frame or not self.frame:IsShown() then return end
+
+    if self._professionRows and UGC.Progression then
+        for _, cat in ipairs(PROF_ORDER) do
+            local row = self._professionRows[cat]
+            local catData = UGC.CATEGORIES[cat]
+            local prog = UGC.Progression:GetProgress(cat)
+            local pct = (prog.reqXP > 0) and math.min(1, prog.xp / prog.reqXP) or 0
+
+            row.label:SetText(string.format("|cff%s%s|r Lv.%d • %s",
+                catData.hex, catData.label, prog.level, prog.title))
+
+            local rowWidth = row:GetWidth()
+            local barWidth = math.max(80, rowWidth - 240)
+            row.barBg:SetWidth(barWidth)
+            row.barFill:SetWidth(math.max(1, barWidth * pct))
+            row.barFill:SetColorTexture(catData.color.r, catData.color.g, catData.color.b, 0.95)
+            row.barText:SetText(string.format("%d / %d EXP", prog.xp, prog.reqXP))
+
+            local recentGain = UGC.Progression:GetRecentGain(cat)
+            if recentGain then
+                row.gainText:SetText(string.format("+%d EXP", recentGain))
+            else
+                row.gainText:SetText("")
+            end
+        end
+    end
 
     -- Hide all pooled rows
     for _, row in ipairs(self.rows) do row:Hide() end

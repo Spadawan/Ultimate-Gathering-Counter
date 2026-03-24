@@ -9,7 +9,7 @@ local UGC = _G.UGC
 UGC.DB = {}
 local DB = UGC.DB
 
-local SCHEMA_VERSION = 3
+local SCHEMA_VERSION = 4
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -40,6 +40,12 @@ local DEFAULTS = {
         allTime = { herbs = 0, ore = 0, fish = 0, leather = 0 },
         daily   = { dayStart = 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
         weekly  = { weekStart = 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+    },
+    professionProgress = {
+        herbs   = { level = 1, xp = 0, totalHarvests = 0 },
+        ore     = { level = 1, xp = 0, totalHarvests = 0 },
+        fish    = { level = 1, xp = 0, totalHarvests = 0 },
+        leather = { level = 1, xp = 0, totalHarvests = 0 },
     },
 }
 
@@ -79,6 +85,16 @@ function DB:Init()
                 allTime = { herbs=0, ore=0, fish=0, leather=0 },
                 daily   = { dayStart=0, herbs=0, ore=0, fish=0, leather=0 },
                 weekly  = { weekStart=0, herbs=0, ore=0, fish=0, leather=0 },
+            }
+        end
+    end
+    if ver < 4 then
+        if not UGC_DB.professionProgress then
+            UGC_DB.professionProgress = {
+                herbs   = { level = 1, xp = 0, totalHarvests = 0 },
+                ore     = { level = 1, xp = 0, totalHarvests = 0 },
+                fish    = { level = 1, xp = 0, totalHarvests = 0 },
+                leather = { level = 1, xp = 0, totalHarvests = 0 },
             }
         end
     end
@@ -236,6 +252,37 @@ function DB:GetGatherActions(period)
     local f  = t.fish    or 0
     local l  = t.leather or 0
     return { herbs = h, ore = o, fish = f, leather = l, total = h + o + f + l }
+end
+
+-------------------------------------------------------------------------------
+-- Profession progression state
+-------------------------------------------------------------------------------
+local function ensureProfessionState(state)
+    if type(state) ~= "table" then
+        state = {}
+    end
+    if type(state.level) ~= "number" or state.level < 1 then
+        state.level = 1
+    end
+    if type(state.xp) ~= "number" or state.xp < 0 then
+        state.xp = 0
+    end
+    if type(state.totalHarvests) ~= "number" or state.totalHarvests < 0 then
+        state.totalHarvests = 0
+    end
+    return state
+end
+
+function DB:GetProfessionProgress(category)
+    UGC_DB.professionProgress = UGC_DB.professionProgress or {}
+    UGC_DB.professionProgress[category] =
+        ensureProfessionState(UGC_DB.professionProgress[category])
+    return UGC_DB.professionProgress[category]
+end
+
+function DB:SetProfessionProgress(category, state)
+    UGC_DB.professionProgress = UGC_DB.professionProgress or {}
+    UGC_DB.professionProgress[category] = ensureProfessionState(state)
 end
 
 -------------------------------------------------------------------------------

@@ -8,7 +8,7 @@ local UGC = {}
 _G.UGC = UGC
 
 UGC.ADDON_NAME = "UltimateGatheringCounter"
-UGC.VERSION    = "1.1.0"
+UGC.VERSION    = "1.2.0"
 
 -- Category definitions
 UGC.CATEGORIES = {

@@ -286,6 +286,9 @@ function Tracker:ScanBags()
     for cat in pairs(gainedCats) do
         UGC.DB:RecordGatherAction(cat)
         UGC.Session.gatherCount[cat] = (UGC.Session.gatherCount[cat] or 0) + 1
+        if UGC.Progression then
+            UGC.Progression:AddGatherAction(cat)
+        end
     end
 
     -- Update all tracked items' bag counts
