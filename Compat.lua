@@ -126,7 +126,11 @@ function Compat:GetItemCategoryFromInfo(itemID)
         if haystack:find("fish", 1, true) or haystack:find("poisson", 1, true) then
             return "fish"
         end
-        local isEquipment = (classID == LE_ITEM_CLASS_WEAPON) or (classID == LE_ITEM_CLASS_ARMOR)
+        -- Some clients/private cores do not expose LE_ITEM_CLASS_* constants.
+        -- Weapon = 2, Armor = 4 in the Blizzard item class enum.
+        local weaponClassID = LE_ITEM_CLASS_WEAPON or 2
+        local armorClassID  = LE_ITEM_CLASS_ARMOR or 4
+        local isEquipment = (classID == weaponClassID) or (classID == armorClassID)
         if not isEquipment and (haystack:find("leather", 1, true) or haystack:find("cuir", 1, true)
             or haystack:find("hide", 1, true) or haystack:find("peau", 1, true)
             or haystack:find("scale", 1, true) or haystack:find("écaille", 1, true)
