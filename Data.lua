@@ -26,14 +26,10 @@ UGC.CATEGORY_ORDER = { "herbs", "ore", "fish", "leather" }
 UGC.SUBCLASS_MAP = {
     [7] = {
         [7]  = "ore",      -- Metal & Stone
-        -- Ambiguous subtype on Retail; prefer routing to fish to avoid polluting
-        -- Skinning/Leather with non-skinning drops.
-        [8]  = "fish",
         [9]  = "herbs",    -- Herb
     },
-    [2] = {
-        [47] = "fish",     -- Fish (Consumable subtype)
-    },
+    -- Fishing and skinning are strict-list only (ITEM_DB entries), so no
+    -- dynamic subclass mapping for those categories.
 }
 
 -- Item database: [itemID] = { category = string, hint = string }

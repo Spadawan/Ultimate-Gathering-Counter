@@ -25,7 +25,7 @@ local function GetDynamicCategoryFromItemInfo(itemID)
 
     -- Strict class/subclass-only classification (no keyword heuristics):
     -- - Trade Goods/Reagents mapped via UGC.SUBCLASS_MAP
-    -- - Consumable fish subtype mapped via UGC.SUBCLASS_MAP
+    -- - Fishing and skinning are strict-list only via UGC.ITEM_DB
     if classID and subClassID then
         local classMap = UGC.SUBCLASS_MAP[classID]
         if classMap and classMap[subClassID] then
