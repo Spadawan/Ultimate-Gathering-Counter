@@ -11,6 +11,15 @@ local Progression = UGC.Progression
 local MAX_LEVEL = 100
 local XP_PER_HARVEST = 10
 local GAIN_POPUP_SECONDS = 1.8
+local CHAIN_WINDOW_SECONDS = 5 * 60
+local CHAIN_BONUS_XP = 50
+
+local CHAIN_REQUIREMENTS = {
+    herbs = 10,
+    ore = 10,
+    leather = 10,
+    fish = 15,
+}
 local BONUS_XP_BY_ITEM_ID = {
     [236780] = 100, -- Lotus nocturne
     [237366] = 100, -- Thorium éblouissant
@@ -73,7 +82,32 @@ local TITLES = {
     },
 }
 
+
 Progression._recentGain = {}
+Progression._chainState = {}
+
+function Progression:_GetChainBonusXP(category)
+    local needed = CHAIN_REQUIREMENTS[category]
+    if not needed then
+        return 0
+    end
+
+    local now = GetTime()
+    local chain = self._chainState[category]
+    if not chain or (now - (chain.startTime or 0)) > CHAIN_WINDOW_SECONDS then
+        chain = { startTime = now, count = 1 }
+        self._chainState[category] = chain
+    else
+        chain.count = (chain.count or 0) + 1
+    end
+
+    if chain.count >= needed then
+        self._chainState[category] = nil
+        return CHAIN_BONUS_XP
+    end
+
+    return 0
+end
 
 local function GetIncrementForLevel(level)
     if level <= 20 then return 15 end
@@ -163,7 +197,10 @@ function Progression:AddGatherAction(category, itemID)
         return
     end
 
-    local xpGain = self:GetGatherXPGain(itemID)
+    local baseXPGain = self:GetGatherXPGain(itemID)
+    local bonusXPGain = self:_GetChainBonusXP(category)
+    local xpGain = baseXPGain + bonusXPGain
+
     state.totalHarvests = (state.totalHarvests or 0) + 1
     state.xp = (state.xp or 0) + xpGain
 
@@ -194,11 +231,20 @@ function Progression:AddGatherAction(category, itemID)
 
     local catLabel = UGC.CATEGORIES[category].label
     local reqXP = self:GetXPRequirement(category, state.level)
-    print(string.format("|cff33E633UGC|r |cffffffff+%d %s EXP|r (%d/%d)",
-        xpGain, catLabel, state.xp, reqXP))
+    local gainLabel = string.format("+%d", xpGain)
+    if bonusXPGain > 0 then
+        gainLabel = string.format("+%d (%d bonus chain)", xpGain, bonusXPGain)
+    end
+
+    print(string.format("|cff33E633UGC|r |cffffffff%s %s EXP|r (%d/%d)",
+        gainLabel, catLabel, state.xp, reqXP))
 
     if leveledUp then
         self:_AnnounceCenter(string.format("LEVEL UP! %s reached Level %d", catLabel, state.level))
+    end
+
+    if bonusXPGain > 0 then
+        self:_AnnounceCenter(string.format("BONUS CHAIN! +%d %s EXP", bonusXPGain, catLabel))
     end
 
     for _, t in ipairs(unlockedTitles) do
@@ -215,4 +261,9 @@ function Progression:AddGatherAction(category, itemID)
             UGC.Details:Refresh()
         end
     end)
+end
+
+
+function Progression:ResetChainState()
+    wipe(self._chainState)
 end

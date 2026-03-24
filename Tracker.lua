@@ -159,6 +159,9 @@ function Tracker:Init()
     wipe(UGC.Session.items)
     wipe(UGC.Session.bagSnapshot)
     wipe(UGC.Session.pendingLoot)
+    if UGC.Progression and UGC.Progression.ResetChainState then
+        UGC.Progression:ResetChainState()
+    end
     -- Build initial snapshot without recording gains
     self:_buildSnapshot()
     _initialized = true  -- safe to process bag events from now on
@@ -612,6 +615,9 @@ function Tracker:ResetSession()
     UGC.DB:ResetSession()
     wipe(UGC.Session.gatherCount)
     wipe(UGC.Session.pendingLoot)
+    if UGC.Progression and UGC.Progression.ResetChainState then
+        UGC.Progression:ResetChainState()
+    end
     self:_buildSnapshot()
 end
 
