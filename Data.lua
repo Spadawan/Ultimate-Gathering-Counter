@@ -28,7 +28,6 @@ UGC.SUBCLASS_MAP = {
         [7]  = "ore",      -- Metal & Stone
         [8]  = "leather",  -- Leather
         [9]  = "herbs",    -- Herb
-        [18] = "leather",  -- Misc / skinning byproducts
     },
     [2] = {
         [47] = "fish",     -- Fish (Consumable subtype)

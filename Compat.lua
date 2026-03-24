@@ -105,15 +105,12 @@ end
 function Compat:GetItemCategoryFromInfo(itemID)
     local _, _, _, _, _, itemType, itemSubType, _, _, _, _, classID, subClassID = GetItemInfo(itemID)
 
-    if classID and subClassID then
-        local classMap = UGC.SUBCLASS_MAP[classID]
-        if classMap and classMap[subClassID] then
-            return classMap[subClassID]
-        end
-    end
-
     if type(itemType) == "string" and type(itemSubType) == "string" then
         local haystack = string.lower(itemType .. "|" .. itemSubType)
+        if haystack:find("recipe", 1, true) or haystack:find("plan", 1, true)
+            or haystack:find("recette", 1, true) or haystack:find("plan:", 1, true) then
+            return nil
+        end
         if haystack:find("herb", 1, true) or haystack:find("herbe", 1, true) then
             return "herbs"
         end
@@ -130,6 +127,13 @@ function Compat:GetItemCategoryFromInfo(itemID)
             or haystack:find("scale", 1, true) or haystack:find("écaille", 1, true)
             or haystack:find("bone", 1, true) or haystack:find("os", 1, true) then
             return "leather"
+        end
+    end
+
+    if classID and subClassID then
+        local classMap = UGC.SUBCLASS_MAP[classID]
+        if classMap and classMap[subClassID] then
+            return classMap[subClassID]
         end
     end
 
