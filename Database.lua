@@ -602,3 +602,9 @@ function DB:PruneCommunityPeers(maxAgeSeconds)
     end
     UGC_DB.community.lastCleanup = now
 end
+
+function DB:RemoveCommunityPeer(name)
+    if type(name) ~= "string" or name == "" then return end
+    local peers = self:GetCommunityPeers()
+    peers[name] = nil
+end
