@@ -193,29 +193,6 @@ end
 function DB:_ensureCharacterStats()
     UGC_DB.characterStats = UGC_DB.characterStats or {}
 
-    local function hasLegacyStats()
-        if next(UGC_DB.allTime or {}) then return true end
-        for k in pairs(UGC_DB.daily or {}) do
-            if k ~= "dayStart" then return true end
-        end
-        for k in pairs(UGC_DB.weekly or {}) do
-            if k ~= "weekStart" then return true end
-        end
-        if #(UGC_DB.hourlyBuckets or {}) > 0 then return true end
-        local ga = UGC_DB.gatherActions or {}
-        local allTime = ga.allTime or {}
-        return (allTime.herbs or 0) > 0 or (allTime.ore or 0) > 0 or (allTime.fish or 0) > 0 or (allTime.leather or 0) > 0
-    end
-
-    local function copyCounts(src)
-        return {
-            herbs = tonumber(src and src.herbs) or 0,
-            ore = tonumber(src and src.ore) or 0,
-            fish = tonumber(src and src.fish) or 0,
-            leather = tonumber(src and src.leather) or 0,
-        }
-    end
-
     local charKey = getCharacterKey()
     local stats = UGC_DB.characterStats[charKey]
     if type(stats) ~= "table" then
@@ -230,49 +207,6 @@ function DB:_ensureCharacterStats()
                 weekly = { weekStart = UGC_DB.weekly.weekStart or 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
             },
         }
-
-        if (UGC_DB.legacyStatsMigrated ~= true) and hasLegacyStats() then
-            for id, row in pairs(UGC_DB.allTime or {}) do
-                if type(row) == "table" then
-                    stats.allTime[id] = {
-                        count = tonumber(row.count) or 0,
-                        firstSeen = tonumber(row.firstSeen) or 0,
-                        lastSeen = tonumber(row.lastSeen) or 0,
-                    }
-                end
-            end
-            for id, row in pairs(UGC_DB.weekly or {}) do
-                if id ~= "weekStart" and type(row) == "table" then
-                    stats.weekly[id] = { count = tonumber(row.count) or 0 }
-                end
-            end
-            for id, row in pairs(UGC_DB.daily or {}) do
-                if id ~= "dayStart" and type(row) == "table" then
-                    stats.daily[id] = { count = tonumber(row.count) or 0 }
-                end
-            end
-            for _, bucket in ipairs(UGC_DB.hourlyBuckets or {}) do
-                if type(bucket) == "table" and type(bucket.items) == "table" then
-                    local itemsCopy = {}
-                    for itemKey, itemCount in pairs(bucket.items) do
-                        itemsCopy[itemKey] = tonumber(itemCount) or 0
-                    end
-                    table.insert(stats.hourlyBuckets, {
-                        hourEpoch = tonumber(bucket.hourEpoch) or 0,
-                        items = itemsCopy,
-                    })
-                end
-            end
-            local ga = UGC_DB.gatherActions or {}
-            stats.gatherActions = {
-                allTime = copyCounts(ga.allTime),
-                daily = copyCounts(ga.daily),
-                weekly = copyCounts(ga.weekly),
-            }
-            stats.gatherActions.daily.dayStart = tonumber(ga.daily and ga.daily.dayStart) or (UGC_DB.daily.dayStart or 0)
-            stats.gatherActions.weekly.weekStart = tonumber(ga.weekly and ga.weekly.weekStart) or (UGC_DB.weekly.weekStart or 0)
-            UGC_DB.legacyStatsMigrated = true
-        end
 
         UGC_DB.characterStats[charKey] = stats
     end
