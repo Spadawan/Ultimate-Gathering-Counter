@@ -19,6 +19,7 @@ local STATE_GRACE_SECONDS = 2.0
 Community._lastSendAt = 0
 Community._pendingJoinUntil = 0
 Community._pendingLeaveUntil = 0
+Community._lastLocalPlayerName = nil
 
 local function split(str, sep)
     local out = {}
@@ -137,7 +138,13 @@ function Community:BroadcastSnapshot(force)
     self._lastSendAt = now
 
     local snapshot = self:_collectLocalSnapshot()
-    UGC.DB:UpsertCommunityPeer(self:_normalizePlayerName(self:_getPlayerName()), {
+    local localName = self:_normalizePlayerName(self:_getPlayerName())
+    if self._lastLocalPlayerName and self._lastLocalPlayerName ~= localName then
+        UGC.DB:RemoveCommunityPeer(self._lastLocalPlayerName)
+    end
+    self._lastLocalPlayerName = localName
+
+    UGC.DB:UpsertCommunityPeer(localName, {
         totals = snapshot.totals,
         levels = snapshot.levels,
         classToken = snapshot.classToken,

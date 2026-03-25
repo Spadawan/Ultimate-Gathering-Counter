@@ -761,6 +761,7 @@ function Details:_RefreshLeaderboard()
         table.insert(rows, {
             name = name,
             total = total,
+            levelTotal = levelSum,
             totals = t,
             levelSummary = string.format("L%d", levelSum),
             titles = table.concat(titleParts, " | "),
@@ -776,10 +777,13 @@ function Details:_RefreshLeaderboard()
         if b.name == localName and a.name ~= localName then
             return false
         end
-        if a.total == b.total then
-            return a.name < b.name
+        if a.levelTotal == b.levelTotal then
+            if a.total == b.total then
+                return a.name < b.name
+            end
+            return a.total > b.total
         end
-        return a.total > b.total
+        return a.levelTotal > b.levelTotal
     end)
 
     for _, row in ipairs(self.rows) do row:Hide() end
