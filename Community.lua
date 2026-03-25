@@ -10,6 +10,7 @@ local Community = UGC.Community
 
 local PREFIX = "UGC_SYNC"
 local CHANNEL_NAME = "UGC"
+local TARGET_CHAT_FRAME_ID = 6
 local VERSION = 2
 local STALE_SECONDS = 7 * 24 * 3600
 local THROTTLE_SECONDS = 20
@@ -153,7 +154,7 @@ function Community:_joinChannel()
     end
     local id = GetChannelName(CHANNEL_NAME)
     if not id or id <= 0 then
-        JoinChannelByName(CHANNEL_NAME)
+        JoinChannelByName(CHANNEL_NAME, nil, TARGET_CHAT_FRAME_ID)
     end
 
     if type(ChatFrame_RemoveChannel) == "function" then
@@ -166,16 +167,37 @@ function Community:_joinChannel()
     end
 end
 
+function Community:IsJoined()
+    local id = GetChannelName(CHANNEL_NAME)
+    return id and id > 0
+end
+
+function Community:JoinLeaderboardChannel()
+    self:_joinChannel()
+    self:RequestSync()
+    self:BroadcastSnapshot(true)
+end
+
+function Community:LeaveLeaderboardChannel()
+    if type(LeaveChannelByName) ~= "function" then
+        return
+    end
+    local id = GetChannelName(CHANNEL_NAME)
+    if id and id > 0 then
+        LeaveChannelByName(CHANNEL_NAME)
+    end
+end
+
 function Community:Init()
     if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
         C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
     end
 
-    self:_joinChannel()
     C_Timer.After(2, function()
-        Community:_joinChannel()
-        Community:RequestSync()
-        Community:BroadcastSnapshot(true)
+        if Community:IsJoined() then
+            Community:RequestSync()
+            Community:BroadcastSnapshot(true)
+        end
     end)
 end
 
