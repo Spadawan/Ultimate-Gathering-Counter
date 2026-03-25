@@ -14,8 +14,11 @@ local TARGET_CHAT_FRAME_ID = 6
 local VERSION = 2
 local STALE_SECONDS = 7 * 24 * 3600
 local THROTTLE_SECONDS = 20
+local STATE_GRACE_SECONDS = 2.0
 
 Community._lastSendAt = 0
+Community._pendingJoinUntil = 0
+Community._pendingLeaveUntil = 0
 
 local function split(str, sep)
     local out = {}
@@ -166,6 +169,14 @@ function Community:_joinChannel()
 end
 
 function Community:IsJoined()
+    local now = GetTime and GetTime() or 0
+    if (self._pendingLeaveUntil or 0) > now then
+        return false
+    end
+    if (self._pendingJoinUntil or 0) > now then
+        return true
+    end
+
     local id = GetChannelName(CHANNEL_NAME)
     return id and id > 0
 end
@@ -175,6 +186,10 @@ function Community:JoinLeaderboardChannel()
     if not didRequest then
         return false
     end
+
+    local now = GetTime and GetTime() or 0
+    self._pendingJoinUntil = now + STATE_GRACE_SECONDS
+    self._pendingLeaveUntil = 0
 
     C_Timer.After(0.4, function()
         Community:RequestSync()
@@ -193,6 +208,9 @@ function Community:LeaveLeaderboardChannel()
     local id = GetChannelName(CHANNEL_NAME)
     if id and id > 0 then
         LeaveChannelByName(CHANNEL_NAME)
+        local now = GetTime and GetTime() or 0
+        self._pendingLeaveUntil = now + STATE_GRACE_SECONDS
+        self._pendingJoinUntil = 0
         return true
     end
     return false

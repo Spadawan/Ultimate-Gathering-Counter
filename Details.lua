@@ -711,6 +711,30 @@ function Details:_ApplyRowLayout(mode)
     end
 end
 
+function Details:_SetLeaderboardVisualState(isJoined)
+    if self.content then
+        self.content:SetAlpha(isJoined and 1 or 0.45)
+    end
+
+    local headerR, headerG, headerB = 1, 1, 1
+    if not isJoined then
+        headerR, headerG, headerB = 0.6, 0.6, 0.6
+    end
+
+    if self._itemColLabel then
+        self._itemColLabel:SetTextColor(headerR, headerG, headerB)
+    end
+    if self._countHeader and self._countHeader._label then
+        self._countHeader._label:SetTextColor(headerR, headerG, headerB)
+    end
+    if self._valueHeader and self._valueHeader._label then
+        self._valueHeader._label:SetTextColor(headerR, headerG, headerB)
+    end
+    if self._pctHeader and self._pctHeader._label then
+        self._pctHeader._label:SetTextColor(headerR, headerG, headerB)
+    end
+end
+
 function Details:_RefreshLeaderboard()
     local peers = UGC.DB:GetCommunityPeers() or {}
     local isJoined = UGC.Community and UGC.Community.IsJoined and UGC.Community:IsJoined()
@@ -859,6 +883,8 @@ function Details:_RefreshLeaderboard()
             self._leaderboardChannelBtn:SetText("Join Leaderboard")
         end
     end
+
+    self:_SetLeaderboardVisualState(isJoined)
 end
 
 -------------------------------------------------------------------------------
@@ -916,6 +942,7 @@ function Details:Refresh()
     if self._leaderboardChannelBtn then
         self._leaderboardChannelBtn:Hide()
     end
+    self:_SetLeaderboardVisualState(true)
 
     self:_ApplyRowLayout("items")
 
