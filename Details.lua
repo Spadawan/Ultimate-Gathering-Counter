@@ -120,6 +120,10 @@ local function SetClassIcon(texture, classToken)
     SetDefaultIcon(texture)
 end
 
+local function PrintLeaderboardChannelStatus(msg)
+    print(string.format("|cff33E633UGC:|r %s", msg))
+end
+
 -------------------------------------------------------------------------------
 -- Row factory
 -------------------------------------------------------------------------------
@@ -582,10 +586,44 @@ function Details:Init()
     closeBtn2:SetText("Close")
     closeBtn2:SetScript("OnClick", function() Details:Hide() end)
 
+    local leaderboardChannelBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    leaderboardChannelBtn:SetSize(170, 24)
+    leaderboardChannelBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 10)
+    leaderboardChannelBtn:SetText("Join Leaderboard")
+    leaderboardChannelBtn:SetScript("OnClick", function()
+        if not UGC.Community then
+            return
+        end
+        if UGC.Community:IsJoined() then
+            local didLeave = UGC.Community:LeaveLeaderboardChannel()
+            if didLeave then
+                leaderboardChannelBtn:SetText("Join Leaderboard")
+                PrintLeaderboardChannelStatus("You left the leaderboard channel.")
+            else
+                PrintLeaderboardChannelStatus("Unable to leave the leaderboard channel.")
+            end
+        else
+            local didJoin = UGC.Community:JoinLeaderboardChannel()
+            if didJoin then
+                leaderboardChannelBtn:SetText("Leave Leaderboard")
+                PrintLeaderboardChannelStatus("You joined the leaderboard channel.")
+            else
+                PrintLeaderboardChannelStatus("Unable to join the leaderboard channel.")
+            end
+        end
+        C_Timer.After(0.2, function()
+            if Details and Details.frame and Details.frame:IsShown() then
+                Details:Refresh()
+            end
+        end)
+    end)
+    leaderboardChannelBtn:Hide()
+
     -- ── Store refs ────────────────────────────────────────────────────
     self.frame   = f
     self.content = content
     self.rows    = {}
+    self._leaderboardChannelBtn = leaderboardChannelBtn
 
     f:Hide()
 end
@@ -673,8 +711,33 @@ function Details:_ApplyRowLayout(mode)
     end
 end
 
+function Details:_SetLeaderboardVisualState(isJoined)
+    if self.content then
+        self.content:SetAlpha(isJoined and 1 or 0.45)
+    end
+
+    local headerR, headerG, headerB = 1, 1, 1
+    if not isJoined then
+        headerR, headerG, headerB = 0.6, 0.6, 0.6
+    end
+
+    if self._itemColLabel then
+        self._itemColLabel:SetTextColor(headerR, headerG, headerB)
+    end
+    if self._countHeader and self._countHeader._label then
+        self._countHeader._label:SetTextColor(headerR, headerG, headerB)
+    end
+    if self._valueHeader and self._valueHeader._label then
+        self._valueHeader._label:SetTextColor(headerR, headerG, headerB)
+    end
+    if self._pctHeader and self._pctHeader._label then
+        self._pctHeader._label:SetTextColor(headerR, headerG, headerB)
+    end
+end
+
 function Details:_RefreshLeaderboard()
     local peers = UGC.DB:GetCommunityPeers() or {}
+    local isJoined = UGC.Community and UGC.Community.IsJoined and UGC.Community:IsJoined()
     local localName = (UGC.Community and UGC.Community._normalizePlayerName and UGC.Community:_normalizePlayerName(UGC.Community:_getPlayerName()))
         or (UGC.Community and UGC.Community:_getPlayerName())
         or UnitName("player")
@@ -707,6 +770,12 @@ function Details:_RefreshLeaderboard()
     end
 
     table.sort(rows, function(a, b)
+        if a.name == localName and b.name ~= localName then
+            return true
+        end
+        if b.name == localName and a.name ~= localName then
+            return false
+        end
         if a.total == b.total then
             return a.name < b.name
         end
@@ -736,7 +805,9 @@ function Details:_RefreshLeaderboard()
         row:SetPoint("TOPLEFT", self.content, "TOPLEFT", 0, -yOffset)
         row:SetWidth(self.content:GetWidth())
 
-        if i % 2 == 0 then
+        if entry.name == localName then
+            row.bg:SetColorTexture(0.2, 0.45, 0.12, 0.35)
+        elseif i % 2 == 0 then
             row.bg:SetColorTexture(1, 1, 1, 0.03)
         else
             row.bg:SetColorTexture(0, 0, 0, 0)
@@ -746,8 +817,9 @@ function Details:_RefreshLeaderboard()
         for k = 1, 3 do row.qualityStars[k]:Hide() end
 
         local t = entry.totals
-        row.nameText:SetText(string.format("#%d |cff33E633%s|r  |cff888888(H:%d O:%d F:%d L:%d)|r",
-            i, entry.name, t.herbs or 0, t.ore or 0, t.fish or 0, t.leather or 0))
+        local playerNameColor = (entry.name == localName) and "ff66ff66" or "ff33E633"
+        row.nameText:SetText(string.format("#%d |c%s%s|r  |cff888888(H:%d O:%d F:%d L:%d)|r",
+            i, playerNameColor, entry.name, t.herbs or 0, t.ore or 0, t.fish or 0, t.leather or 0))
         row.countText:SetText(tostring(entry.total))
         row.valueText:SetText(entry.levelSummary)
         row.pctText:SetText(entry.titles)
@@ -772,9 +844,13 @@ function Details:_RefreshLeaderboard()
         if not self._emptyText then
             self._emptyText = self.content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
             self._emptyText:SetPoint("TOP", self.content, "TOP", 0, -20)
-            self._emptyText:SetText("No community data received on the UGC channel yet.")
             self._emptyText:SetJustifyH("CENTER")
             self._emptyText:SetWidth(self.content:GetWidth())
+        end
+        if isJoined then
+            self._emptyText:SetText("No community data received on the UGC channel yet.")
+        else
+            self._emptyText:SetText("You are not connected to the UGC leaderboard channel.")
         end
         self._emptyText:Show()
         yOffset = 50
@@ -792,9 +868,23 @@ function Details:_RefreshLeaderboard()
     self._summaryLine1:SetText(string.format(
         "Channel |cff33E633UGC|r  |  Players: %d  |  Shared gathers: %d",
         #rows, grandTotal))
-    self._summaryLine2:SetText(string.format(
-        "Your rank: |cffffd700%s|r  |  Tip: ask more players to join the UGC channel.",
-        rankText))
+    if isJoined then
+        self._summaryLine2:SetText(string.format(
+            "Your rank: |cffffd700%s|r  |  Tip: ask more players to join the UGC channel.",
+            rankText))
+    else
+        self._summaryLine2:SetText("Join the UGC leaderboard channel to sync community data.")
+    end
+
+    if self._leaderboardChannelBtn then
+        if isJoined then
+            self._leaderboardChannelBtn:SetText("Leave Leaderboard")
+        else
+            self._leaderboardChannelBtn:SetText("Join Leaderboard")
+        end
+    end
+
+    self:_SetLeaderboardVisualState(isJoined)
 end
 
 -------------------------------------------------------------------------------
@@ -841,10 +931,18 @@ function Details:Refresh()
     if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("% Total") end
 
     if period == "leaderboard" then
+        if self._leaderboardChannelBtn then
+            self._leaderboardChannelBtn:Show()
+        end
         self:_ApplyRowLayout("leaderboard")
         self:_RefreshLeaderboard()
         return
     end
+
+    if self._leaderboardChannelBtn then
+        self._leaderboardChannelBtn:Hide()
+    end
+    self:_SetLeaderboardVisualState(true)
 
     self:_ApplyRowLayout("items")
 

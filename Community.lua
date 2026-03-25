@@ -10,11 +10,15 @@ local Community = UGC.Community
 
 local PREFIX = "UGC_SYNC"
 local CHANNEL_NAME = "UGC"
+local TARGET_CHAT_FRAME_ID = 6
 local VERSION = 2
 local STALE_SECONDS = 7 * 24 * 3600
 local THROTTLE_SECONDS = 20
+local STATE_GRACE_SECONDS = 2.0
 
 Community._lastSendAt = 0
+Community._pendingJoinUntil = 0
+Community._pendingLeaveUntil = 0
 
 local function split(str, sep)
     local out = {}
@@ -149,12 +153,9 @@ end
 
 function Community:_joinChannel()
     if type(JoinChannelByName) ~= "function" then
-        return
+        return false
     end
-    local id = GetChannelName(CHANNEL_NAME)
-    if not id or id <= 0 then
-        JoinChannelByName(CHANNEL_NAME)
-    end
+    JoinChannelByName(CHANNEL_NAME, nil, TARGET_CHAT_FRAME_ID)
 
     if type(ChatFrame_RemoveChannel) == "function" then
         for i = 1, (NUM_CHAT_WINDOWS or 0) do
@@ -164,6 +165,55 @@ function Community:_joinChannel()
             end
         end
     end
+    return true
+end
+
+function Community:IsJoined()
+    local now = GetTime and GetTime() or 0
+    if (self._pendingLeaveUntil or 0) > now then
+        return false
+    end
+    if (self._pendingJoinUntil or 0) > now then
+        return true
+    end
+
+    local id = GetChannelName(CHANNEL_NAME)
+    return id and id > 0
+end
+
+function Community:JoinLeaderboardChannel()
+    local didRequest = self:_joinChannel()
+    if not didRequest then
+        return false
+    end
+
+    local now = GetTime and GetTime() or 0
+    self._pendingJoinUntil = now + STATE_GRACE_SECONDS
+    self._pendingLeaveUntil = 0
+
+    C_Timer.After(0.4, function()
+        Community:RequestSync()
+        Community:BroadcastSnapshot(true)
+        if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
+            UGC.Details:Refresh()
+        end
+    end)
+    return true
+end
+
+function Community:LeaveLeaderboardChannel()
+    if type(LeaveChannelByName) ~= "function" then
+        return false
+    end
+    local id = GetChannelName(CHANNEL_NAME)
+    if id and id > 0 then
+        LeaveChannelByName(CHANNEL_NAME)
+        local now = GetTime and GetTime() or 0
+        self._pendingLeaveUntil = now + STATE_GRACE_SECONDS
+        self._pendingJoinUntil = 0
+        return true
+    end
+    return false
 end
 
 function Community:Init()
@@ -171,11 +221,11 @@ function Community:Init()
         C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
     end
 
-    self:_joinChannel()
     C_Timer.After(2, function()
-        Community:_joinChannel()
-        Community:RequestSync()
-        Community:BroadcastSnapshot(true)
+        if Community:IsJoined() then
+            Community:RequestSync()
+            Community:BroadcastSnapshot(true)
+        end
     end)
 end
 
