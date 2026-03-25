@@ -8,8 +8,9 @@ local UGC = _G.UGC
 
 UGC.DB = {}
 local DB = UGC.DB
+local getLegacyNameKey, getCharacterKey
 
-local SCHEMA_VERSION = 7
+local SCHEMA_VERSION = 8
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -49,6 +50,8 @@ local DEFAULTS = {
     },
     professionProgressByCharacter = {},
     professionProgressLegacyMigrated = false,
+    characterStats = {},
+    legacyStatsMigrated = false,
     community = {
         peers = {},
         lastCleanup = 0,
@@ -119,6 +122,14 @@ function DB:Init()
             UGC_DB.professionProgressLegacyMigrated = false
         end
     end
+    if ver < 8 then
+        if type(UGC_DB.characterStats) ~= "table" then
+            UGC_DB.characterStats = {}
+        end
+        if UGC_DB.legacyStatsMigrated == nil then
+            UGC_DB.legacyStatsMigrated = false
+        end
+    end
     if ver < SCHEMA_VERSION then
         UGC_DB.version = SCHEMA_VERSION
     end
@@ -130,21 +141,32 @@ function DB:Init()
     local daysSinceMon = (wday == 0) and 6 or (wday - 1)
     local weekStart = dayStart - (daysSinceMon * 86400)
 
-    if UGC_DB.daily.dayStart ~= dayStart then
-        local ds = dayStart
-        wipe(UGC_DB.daily)
-        UGC_DB.daily.dayStart = ds
-    end
+    -- Ensure/reset per-character statistics
+    local charStats = UGC_DB.characterStats or {}
+    for _, stats in pairs(charStats) do
+        stats.allTime = stats.allTime or {}
+        stats.weekly = stats.weekly or { weekStart = 0 }
+        stats.daily = stats.daily or { dayStart = 0 }
+        stats.hourlyBuckets = stats.hourlyBuckets or {}
+        stats.gatherActions = stats.gatherActions or {
+            allTime = { herbs = 0, ore = 0, fish = 0, leather = 0 },
+            daily = { dayStart = 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+            weekly = { weekStart = 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+        }
 
-    if UGC_DB.weekly.weekStart ~= weekStart then
-        local ws = weekStart
-        wipe(UGC_DB.weekly)
-        UGC_DB.weekly.weekStart = ws
-    end
+        if stats.daily.dayStart ~= dayStart then
+            local ds = dayStart
+            wipe(stats.daily)
+            stats.daily.dayStart = ds
+        end
 
-    -- Reset stale gatherActions daily/weekly
-    local ga = UGC_DB.gatherActions
-    if ga then
+        if stats.weekly.weekStart ~= weekStart then
+            local ws = weekStart
+            wipe(stats.weekly)
+            stats.weekly.weekStart = ws
+        end
+
+        local ga = stats.gatherActions
         if ga.daily.dayStart ~= dayStart then
             local ds = dayStart
             wipe(ga.daily)
@@ -155,26 +177,132 @@ function DB:Init()
             wipe(ga.weekly)
             ga.weekly.weekStart = ws
         end
+
+        while #stats.hourlyBuckets > 24 do
+            table.remove(stats.hourlyBuckets, 1)
+        end
     end
 
+    self:_ensureCharacterStats()
     self:_ensureHourlyBucket(now)
 end
 
 -------------------------------------------------------------------------------
 -- Hourly bucket helpers
 -------------------------------------------------------------------------------
+function DB:_ensureCharacterStats()
+    UGC_DB.characterStats = UGC_DB.characterStats or {}
+
+    local function hasLegacyStats()
+        if next(UGC_DB.allTime or {}) then return true end
+        for k in pairs(UGC_DB.daily or {}) do
+            if k ~= "dayStart" then return true end
+        end
+        for k in pairs(UGC_DB.weekly or {}) do
+            if k ~= "weekStart" then return true end
+        end
+        if #(UGC_DB.hourlyBuckets or {}) > 0 then return true end
+        local ga = UGC_DB.gatherActions or {}
+        local allTime = ga.allTime or {}
+        return (allTime.herbs or 0) > 0 or (allTime.ore or 0) > 0 or (allTime.fish or 0) > 0 or (allTime.leather or 0) > 0
+    end
+
+    local function copyCounts(src)
+        return {
+            herbs = tonumber(src and src.herbs) or 0,
+            ore = tonumber(src and src.ore) or 0,
+            fish = tonumber(src and src.fish) or 0,
+            leather = tonumber(src and src.leather) or 0,
+        }
+    end
+
+    local charKey = getCharacterKey()
+    local stats = UGC_DB.characterStats[charKey]
+    if type(stats) ~= "table" then
+        stats = {
+            allTime = {},
+            weekly = { weekStart = UGC_DB.weekly.weekStart or 0 },
+            daily = { dayStart = UGC_DB.daily.dayStart or 0 },
+            hourlyBuckets = {},
+            gatherActions = {
+                allTime = { herbs = 0, ore = 0, fish = 0, leather = 0 },
+                daily = { dayStart = UGC_DB.daily.dayStart or 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+                weekly = { weekStart = UGC_DB.weekly.weekStart or 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+            },
+        }
+
+        if (UGC_DB.legacyStatsMigrated ~= true) and hasLegacyStats() then
+            for id, row in pairs(UGC_DB.allTime or {}) do
+                if type(row) == "table" then
+                    stats.allTime[id] = {
+                        count = tonumber(row.count) or 0,
+                        firstSeen = tonumber(row.firstSeen) or 0,
+                        lastSeen = tonumber(row.lastSeen) or 0,
+                    }
+                end
+            end
+            for id, row in pairs(UGC_DB.weekly or {}) do
+                if id ~= "weekStart" and type(row) == "table" then
+                    stats.weekly[id] = { count = tonumber(row.count) or 0 }
+                end
+            end
+            for id, row in pairs(UGC_DB.daily or {}) do
+                if id ~= "dayStart" and type(row) == "table" then
+                    stats.daily[id] = { count = tonumber(row.count) or 0 }
+                end
+            end
+            for _, bucket in ipairs(UGC_DB.hourlyBuckets or {}) do
+                if type(bucket) == "table" and type(bucket.items) == "table" then
+                    local itemsCopy = {}
+                    for itemKey, itemCount in pairs(bucket.items) do
+                        itemsCopy[itemKey] = tonumber(itemCount) or 0
+                    end
+                    table.insert(stats.hourlyBuckets, {
+                        hourEpoch = tonumber(bucket.hourEpoch) or 0,
+                        items = itemsCopy,
+                    })
+                end
+            end
+            local ga = UGC_DB.gatherActions or {}
+            stats.gatherActions = {
+                allTime = copyCounts(ga.allTime),
+                daily = copyCounts(ga.daily),
+                weekly = copyCounts(ga.weekly),
+            }
+            stats.gatherActions.daily.dayStart = tonumber(ga.daily and ga.daily.dayStart) or (UGC_DB.daily.dayStart or 0)
+            stats.gatherActions.weekly.weekStart = tonumber(ga.weekly and ga.weekly.weekStart) or (UGC_DB.weekly.weekStart or 0)
+            UGC_DB.legacyStatsMigrated = true
+        end
+
+        UGC_DB.characterStats[charKey] = stats
+    end
+
+    stats.allTime = stats.allTime or {}
+    stats.weekly = stats.weekly or { weekStart = UGC_DB.weekly.weekStart or 0 }
+    stats.daily = stats.daily or { dayStart = UGC_DB.daily.dayStart or 0 }
+    stats.hourlyBuckets = stats.hourlyBuckets or {}
+    stats.gatherActions = stats.gatherActions or {
+        allTime = { herbs = 0, ore = 0, fish = 0, leather = 0 },
+        daily = { dayStart = UGC_DB.daily.dayStart or 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+        weekly = { weekStart = UGC_DB.weekly.weekStart or 0, herbs = 0, ore = 0, fish = 0, leather = 0 },
+    }
+
+    return stats
+end
+
 function DB:_ensureHourlyBucket(now)
+    local stats = self:_ensureCharacterStats()
     local hourEpoch = now - (now % 3600)
-    for _, bucket in ipairs(UGC_DB.hourlyBuckets) do
+    for _, bucket in ipairs(stats.hourlyBuckets) do
         if bucket.hourEpoch == hourEpoch then
             return bucket
         end
     end
     local bucket = { hourEpoch = hourEpoch, items = {} }
-    table.insert(UGC_DB.hourlyBuckets, bucket)
+    table.insert(stats.hourlyBuckets, bucket)
     -- Keep only the last 24 hourly buckets
-    while #UGC_DB.hourlyBuckets > 24 do
-        table.remove(UGC_DB.hourlyBuckets, 1)
+    while #stats.hourlyBuckets > 24 do
+        table.remove(stats.hourlyBuckets, 1)
     end
     return bucket
 end
@@ -190,27 +318,28 @@ end
 -------------------------------------------------------------------------------
 function DB:RecordGain(itemID, delta)
     if not delta or delta <= 0 then return end
+    local stats = self:_ensureCharacterStats()
     local id  = tostring(itemID)
     local now = UGC.Compat:GetServerTime()
 
     -- All-time
-    if not UGC_DB.allTime[id] then
-        UGC_DB.allTime[id] = { count = 0, firstSeen = now, lastSeen = 0 }
+    if not stats.allTime[id] then
+        stats.allTime[id] = { count = 0, firstSeen = now, lastSeen = 0 }
     end
-    UGC_DB.allTime[id].count   = UGC_DB.allTime[id].count + delta
-    UGC_DB.allTime[id].lastSeen = now
+    stats.allTime[id].count   = stats.allTime[id].count + delta
+    stats.allTime[id].lastSeen = now
 
     -- Weekly
-    if not UGC_DB.weekly[id] then
-        UGC_DB.weekly[id] = { count = 0 }
+    if not stats.weekly[id] then
+        stats.weekly[id] = { count = 0 }
     end
-    UGC_DB.weekly[id].count = UGC_DB.weekly[id].count + delta
+    stats.weekly[id].count = stats.weekly[id].count + delta
 
     -- Daily
-    if not UGC_DB.daily[id] then
-        UGC_DB.daily[id] = { count = 0 }
+    if not stats.daily[id] then
+        stats.daily[id] = { count = 0 }
     end
-    UGC_DB.daily[id].count = UGC_DB.daily[id].count + delta
+    stats.daily[id].count = stats.daily[id].count + delta
 
     -- Hourly bucket
     self:TickHourlyBucket(itemID, delta)
@@ -220,26 +349,30 @@ end
 -- Getters
 -------------------------------------------------------------------------------
 function DB:GetAllTime(itemID)
-    local d = UGC_DB.allTime[tostring(itemID)]
+    local stats = self:_ensureCharacterStats()
+    local d = stats.allTime[tostring(itemID)]
     return d and d.count or 0
 end
 
 function DB:GetWeekly(itemID)
-    local d = UGC_DB.weekly[tostring(itemID)]
+    local stats = self:_ensureCharacterStats()
+    local d = stats.weekly[tostring(itemID)]
     return d and d.count or 0
 end
 
 function DB:GetDaily(itemID)
-    local d = UGC_DB.daily[tostring(itemID)]
+    local stats = self:_ensureCharacterStats()
+    local d = stats.daily[tostring(itemID)]
     return d and d.count or 0
 end
 
 function DB:GetLastHour(itemID)
+    local stats = self:_ensureCharacterStats()
     local now    = UGC.Compat:GetServerTime()
     local cutoff = now - 3600
     local id     = tostring(itemID)
     local total  = 0
-    for _, bucket in ipairs(UGC_DB.hourlyBuckets) do
+    for _, bucket in ipairs(stats.hourlyBuckets) do
         if bucket.hourEpoch >= cutoff then
             total = total + (bucket.items[id] or 0)
         end
@@ -248,7 +381,8 @@ function DB:GetLastHour(itemID)
 end
 
 function DB:GetAllTimeFirstSeen(itemID)
-    local d = UGC_DB.allTime[tostring(itemID)]
+    local stats = self:_ensureCharacterStats()
+    local d = stats.allTime[tostring(itemID)]
     return d and d.firstSeen or 0
 end
 
@@ -257,7 +391,8 @@ end
 -------------------------------------------------------------------------------
 function DB:RecordGatherAction(category)
     if not category then return end
-    local ga = UGC_DB.gatherActions
+    local stats = self:_ensureCharacterStats()
+    local ga = stats.gatherActions
     ga.allTime[category]  = (ga.allTime[category]  or 0) + 1
     ga.daily[category]    = (ga.daily[category]    or 0) + 1
     ga.weekly[category]   = (ga.weekly[category]   or 0) + 1
@@ -266,7 +401,8 @@ end
 -- Returns { herbs, ore, fish, leather, total } for the given period key.
 -- period: "allTime" | "daily" | "weekly"
 function DB:GetGatherActions(period)
-    local ga = UGC_DB.gatherActions
+    local stats = self:_ensureCharacterStats()
+    local ga = stats.gatherActions
     local t  = (ga and ga[period]) or {}
     local h  = t.herbs   or 0
     local o  = t.ore     or 0
@@ -294,7 +430,7 @@ local function ensureProfessionState(state)
     return state
 end
 
-local function getLegacyNameKey()
+getLegacyNameKey = function()
     local full = GetUnitName and GetUnitName("player", true)
     if type(full) == "string" and full ~= "" then
         return full
@@ -310,7 +446,7 @@ local function getLegacyNameKey()
     return name
 end
 
-local function getCharacterKey()
+getCharacterKey = function()
     local guid = UnitGUID and UnitGUID("player")
     if type(guid) == "string" and guid ~= "" then
         return guid
@@ -419,16 +555,17 @@ function DB:ResetSession()
 end
 
 function DB:ResetAllTime()
-    wipe(UGC_DB.allTime)
-    local ws = UGC_DB.weekly.weekStart
-    local ds = UGC_DB.daily.dayStart
-    wipe(UGC_DB.weekly)
-    wipe(UGC_DB.daily)
-    wipe(UGC_DB.hourlyBuckets)
-    UGC_DB.weekly.weekStart = ws
-    UGC_DB.daily.dayStart   = ds
+    local stats = self:_ensureCharacterStats()
+    wipe(stats.allTime)
+    local ws = stats.weekly.weekStart
+    local ds = stats.daily.dayStart
+    wipe(stats.weekly)
+    wipe(stats.daily)
+    wipe(stats.hourlyBuckets)
+    stats.weekly.weekStart = ws
+    stats.daily.dayStart   = ds
     -- Reset gatherActions
-    local ga = UGC_DB.gatherActions
+    local ga = stats.gatherActions
     if ga then
         local ws2 = ga.weekly.weekStart
         local ds2 = ga.daily.dayStart
