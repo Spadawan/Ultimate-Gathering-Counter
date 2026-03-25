@@ -120,6 +120,10 @@ local function SetClassIcon(texture, classToken)
     SetDefaultIcon(texture)
 end
 
+local function PrintLeaderboardChannelStatus(msg)
+    print(string.format("|cff33E633UGC:|r %s", msg))
+end
+
 -------------------------------------------------------------------------------
 -- Row factory
 -------------------------------------------------------------------------------
@@ -591,11 +595,27 @@ function Details:Init()
             return
         end
         if UGC.Community:IsJoined() then
-            UGC.Community:LeaveLeaderboardChannel()
+            local didLeave = UGC.Community:LeaveLeaderboardChannel()
+            if didLeave then
+                leaderboardChannelBtn:SetText("Join Leaderboard")
+                PrintLeaderboardChannelStatus("You left the leaderboard channel.")
+            else
+                PrintLeaderboardChannelStatus("Unable to leave the leaderboard channel.")
+            end
         else
-            UGC.Community:JoinLeaderboardChannel()
+            local didJoin = UGC.Community:JoinLeaderboardChannel()
+            if didJoin then
+                leaderboardChannelBtn:SetText("Leave Leaderboard")
+                PrintLeaderboardChannelStatus("You joined the leaderboard channel.")
+            else
+                PrintLeaderboardChannelStatus("Unable to join the leaderboard channel.")
+            end
         end
-        Details:Refresh()
+        C_Timer.After(0.2, function()
+            if Details and Details.frame and Details.frame:IsShown() then
+                Details:Refresh()
+            end
+        end)
     end)
     leaderboardChannelBtn:Hide()
 

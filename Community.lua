@@ -150,12 +150,9 @@ end
 
 function Community:_joinChannel()
     if type(JoinChannelByName) ~= "function" then
-        return
+        return false
     end
-    local id = GetChannelName(CHANNEL_NAME)
-    if not id or id <= 0 then
-        JoinChannelByName(CHANNEL_NAME, nil, TARGET_CHAT_FRAME_ID)
-    end
+    JoinChannelByName(CHANNEL_NAME, nil, TARGET_CHAT_FRAME_ID)
 
     if type(ChatFrame_RemoveChannel) == "function" then
         for i = 1, (NUM_CHAT_WINDOWS or 0) do
@@ -165,6 +162,7 @@ function Community:_joinChannel()
             end
         end
     end
+    return true
 end
 
 function Community:IsJoined()
@@ -173,19 +171,31 @@ function Community:IsJoined()
 end
 
 function Community:JoinLeaderboardChannel()
-    self:_joinChannel()
-    self:RequestSync()
-    self:BroadcastSnapshot(true)
+    local didRequest = self:_joinChannel()
+    if not didRequest then
+        return false
+    end
+
+    C_Timer.After(0.4, function()
+        Community:RequestSync()
+        Community:BroadcastSnapshot(true)
+        if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
+            UGC.Details:Refresh()
+        end
+    end)
+    return true
 end
 
 function Community:LeaveLeaderboardChannel()
     if type(LeaveChannelByName) ~= "function" then
-        return
+        return false
     end
     local id = GetChannelName(CHANNEL_NAME)
     if id and id > 0 then
         LeaveChannelByName(CHANNEL_NAME)
+        return true
     end
+    return false
 end
 
 function Community:Init()
