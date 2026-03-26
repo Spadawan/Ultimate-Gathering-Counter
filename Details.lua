@@ -197,6 +197,12 @@ function Details:_CreateRow(parent)
             GameTooltip:AddLine(string.format("Herbs: %d  Ore: %d  Fish: %d  Leather: %d",
                 d.herbs or 0, d.ore or 0, d.fish or 0, d.leather or 0), 0.85, 0.85, 0.85)
             GameTooltip:AddLine(string.format("Levels (sum): %s", d.levelSummary or "L0"), 0.8, 0.8, 1)
+            if d.bestCreature and (d.bestCreature.level or 0) > 0 then
+                GameTooltip:AddLine(string.format("Best creature: %s Lv.%d (%s)",
+                    d.bestCreature.name or "Companion",
+                    d.bestCreature.level or 0,
+                    d.bestCreature.category or "?"), 0.6, 1, 0.6)
+            end
             GameTooltip:AddLine("Titles:", 1, 0.82, 0.2)
             GameTooltip:AddLine(d.titles or "-", 0.92, 0.92, 0.92, true)
             GameTooltip:Show()
@@ -767,6 +773,7 @@ function Details:_RefreshLeaderboard()
             titles = table.concat(titleParts, " | "),
             updatedAt = tonumber(peer.updatedAt) or 0,
             classToken = peer.classToken,
+            bestCreature = peer.bestCreature,
         })
     end
 
@@ -838,6 +845,7 @@ function Details:_RefreshLeaderboard()
             leather = t.leather or 0,
             levelSummary = entry.levelSummary,
             titles = entry.titles,
+            bestCreature = entry.bestCreature,
         }
 
         row:Show()
@@ -904,8 +912,8 @@ function Details:Refresh()
             local prog = UGC.Progression:GetProgress(cat)
             local pct = (prog.reqXP > 0) and math.min(1, prog.xp / prog.reqXP) or 0
 
-            row.label:SetText(string.format("|cff%s%s|r Lv.%d • %s",
-                catData.hex, catData.label, prog.level, prog.title))
+            row.label:SetText(string.format("|cff%s%s|r |cff33ff33Lv.%d|r |cff9f9f9f(Best %d)|r • %s",
+                catData.hex, catData.label, prog.level, prog.maxLevelReached or prog.level, prog.title))
 
             local rowWidth = row:GetWidth()
             local barWidth = math.max(80, rowWidth - 240)

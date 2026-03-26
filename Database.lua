@@ -10,7 +10,7 @@ UGC.DB = {}
 local DB = UGC.DB
 local getLegacyNameKey, getCharacterKey
 
-local SCHEMA_VERSION = 8
+local SCHEMA_VERSION = 9
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -51,6 +51,7 @@ local DEFAULTS = {
     },
     professionProgressByCharacter = {},
     professionProgressLegacyMigrated = false,
+    creatureProgressByCharacter = {},
     characterStats = {},
     legacyStatsMigrated = false,
     community = {
@@ -129,6 +130,11 @@ function DB:Init()
         end
         if UGC_DB.legacyStatsMigrated == nil then
             UGC_DB.legacyStatsMigrated = false
+        end
+    end
+    if ver < 9 then
+        if type(UGC_DB.creatureProgressByCharacter) ~= "table" then
+            UGC_DB.creatureProgressByCharacter = {}
         end
     end
     if ver < SCHEMA_VERSION then
@@ -362,6 +368,9 @@ local function ensureProfessionState(state)
     if type(state.totalHarvests) ~= "number" or state.totalHarvests < 0 then
         state.totalHarvests = 0
     end
+    if type(state.maxLevelReached) ~= "number" or state.maxLevelReached < state.level then
+        state.maxLevelReached = state.level
+    end
     return state
 end
 
@@ -418,6 +427,7 @@ local function cloneLegacyProfessionProgress()
             level = old.level,
             xp = old.xp,
             totalHarvests = old.totalHarvests,
+            maxLevelReached = old.maxLevelReached or old.level,
         }
     end
     return out
@@ -432,6 +442,34 @@ local function createCharacterProgressState()
     end
 
     return createEmptyProfessionProgress()
+end
+
+local function ensureCreatureState(state, category)
+    if type(state) ~= "table" then
+        state = {}
+    end
+    if type(state.unlocked) ~= "boolean" then
+        state.unlocked = false
+    end
+    if type(state.level) ~= "number" or state.level < 1 then
+        state.level = 1
+    end
+    if type(state.xp) ~= "number" or state.xp < 0 then
+        state.xp = 0
+    end
+    if type(state.maxLevelReached) ~= "number" or state.maxLevelReached < state.level then
+        state.maxLevelReached = state.level
+    end
+    if type(state.name) ~= "string" or state.name == "" then
+        local defaults = {
+            herbs = "Spriglet",
+            ore = "Pebblin",
+            fish = "Blooplet",
+            leather = "Snugglehide",
+        }
+        state.name = defaults[category] or "Gatherling"
+    end
+    return state
 end
 
 function DB:GetProfessionProgress(category)
@@ -473,6 +511,30 @@ function DB:SetProfessionProgress(category, state)
     end
 
     charState[category] = ensureProfessionState(state)
+end
+
+function DB:GetCreatureProgress(category)
+    UGC_DB.creatureProgressByCharacter = UGC_DB.creatureProgressByCharacter or {}
+    local charKey = getCharacterKey()
+    local charState = UGC_DB.creatureProgressByCharacter[charKey]
+    if type(charState) ~= "table" then
+        charState = {}
+        UGC_DB.creatureProgressByCharacter[charKey] = charState
+    end
+
+    charState[category] = ensureCreatureState(charState[category], category)
+    return charState[category]
+end
+
+function DB:SetCreatureProgress(category, state)
+    UGC_DB.creatureProgressByCharacter = UGC_DB.creatureProgressByCharacter or {}
+    local charKey = getCharacterKey()
+    local charState = UGC_DB.creatureProgressByCharacter[charKey]
+    if type(charState) ~= "table" then
+        charState = {}
+        UGC_DB.creatureProgressByCharacter[charKey] = charState
+    end
+    charState[category] = ensureCreatureState(state, category)
 end
 
 -------------------------------------------------------------------------------
@@ -568,6 +630,21 @@ local function _copyProgress(src)
     return out
 end
 
+local function _copyBestCreature(src)
+    if type(src) ~= "table" then
+        return nil
+    end
+    local category = tostring(src.category or "")
+    if category == "" then
+        return nil
+    end
+    return {
+        category = category,
+        level = math.max(0, tonumber(src.level) or 0),
+        name = tostring(src.name or ""),
+    }
+end
+
 function DB:GetCommunityPeers()
     UGC_DB.community = UGC_DB.community or { peers = {}, lastCleanup = 0 }
     UGC_DB.community.peers = UGC_DB.community.peers or {}
@@ -589,6 +666,7 @@ function DB:UpsertCommunityPeer(name, payload)
         totals = _copyCounts(payload.totals),
         levels = _copyProgress(payload.levels),
         classToken = _sanitizeClassToken(payload.classToken),
+        bestCreature = _copyBestCreature(payload.bestCreature),
     }
 end
 

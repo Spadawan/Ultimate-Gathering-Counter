@@ -30,6 +30,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- All saved variables are fully loaded at this point
         UGC.Tracker:Init()
         UGC.Overlay:Init()
+        if UGC.Creatures then
+            UGC.Creatures:Init()
+        end
         UGC.Details:Init()
         UGC.Config:Init()
         if UGC.Community then

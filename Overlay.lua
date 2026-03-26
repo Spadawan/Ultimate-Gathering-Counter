@@ -24,6 +24,7 @@ local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
 local ICON_ADDON   = "Interface\\Icons\\Ability_Tracking"  -- icône addon (tracking, dispo Classic+Retail)
+local ICON_MONSTER = "Interface\\AddOns\\UltimateGatheringCounter\\media\\monster"
 local STAR_BRONZE  = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star"
 local STAR_SILVER  = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star_silver"
 local STAR_GOLD    = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star_gold"
@@ -341,10 +342,34 @@ function Overlay:Init()
     end)
     configBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    -- Creature window
+    local monsterBtn = CreateFrame("Button", nil, f)
+    monsterBtn:SetSize(16, 16)
+    monsterBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    monsterBtn:SetNormalTexture(ICON_MONSTER)
+    monsterBtn:SetHighlightTexture(ICON_MONSTER, "ADD")
+    monsterBtn:GetNormalTexture():SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    monsterBtn:SetScript("OnClick", function()
+        if UGC.Creatures then
+            UGC.Creatures:Toggle()
+            Overlay:Refresh()
+        end
+    end)
+    monsterBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+        if UGC.Creatures and UGC.Creatures:IsAnyCreatureUnlocked() then
+            GameTooltip:SetText("Open creatures")
+        else
+            GameTooltip:SetText("Locked: reach level 5 in a gathering profession.")
+        end
+        GameTooltip:Show()
+    end)
+    monsterBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     -- Réduire / Restaurer
     local minimizeBtn = CreateFrame("Button", nil, f)
     minimizeBtn:SetSize(16, 16)
-    minimizeBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    minimizeBtn:SetPoint("RIGHT", monsterBtn, "LEFT", -4, 0)
     minimizeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up")
     minimizeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Down")
     minimizeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-CollapseButton-Up", "ADD")
@@ -431,6 +456,7 @@ function Overlay:Init()
     self.totalValue  = totalValue
     self.rows        = {}
     self.headers     = {}
+    self.frame._monsterBtn = monsterBtn
 
     -- ── Mode minimisé ─────────────────────────────────────────────────
     local function ApplyMinimized(minimized)
@@ -554,6 +580,19 @@ function Overlay:Refresh()
     local settings = UGC.DB:GetSettings()
     local items    = UGC.Tracker:GetTrackedItems()
 
+    if self.frame then
+        local btn = self.frame._monsterBtn
+        if btn and UGC.Creatures then
+            local unlocked = UGC.Creatures:IsAnyCreatureUnlocked()
+            btn:SetEnabled(unlocked)
+            if unlocked then
+                btn:GetNormalTexture():SetVertexColor(1, 1, 1, 1)
+            else
+                btn:GetNormalTexture():SetVertexColor(0.4, 0.4, 0.4, 1)
+            end
+        end
+    end
+
     -- Hide all pooled rows and headers
     for _, row in ipairs(self.rows)    do row:Hide()    end
     for _, hdr in ipairs(self.headers) do hdr:Hide()    end
@@ -603,7 +642,8 @@ function Overlay:Refresh()
             local prog = UGC.Progression and UGC.Progression:GetProgress(currentCat)
             if prog then
                 local catTitle = prog.title or "Novice"
-                hdr.label:SetText(string.format("%s  Lv.%d", catData.label:upper(), prog.level))
+                hdr.label:SetText(string.format("%s  |cff33ff33Lv.%d|r |cff9f9f9f(Best %d)|r",
+                    catData.label:upper(), prog.level, prog.maxLevelReached or prog.level))
                 hdr.count:SetText(string.format("%d items  •  %s", catCounts[currentCat], catTitle))
 
                 local barWidth = math.max(70, self.content:GetWidth() - 130)
@@ -628,6 +668,16 @@ function Overlay:Refresh()
                 hdr.xpFill:SetWidth(1)
                 hdr.xpText:SetText("")
                 hdr.gainText:SetText("")
+            end
+
+            if UGC.Creatures and monsterBtn then
+                local unlocked = UGC.Creatures:IsAnyCreatureUnlocked()
+                monsterBtn:SetEnabled(unlocked)
+                if unlocked then
+                    monsterBtn:GetNormalTexture():SetVertexColor(1, 1, 1, 1)
+                else
+                    monsterBtn:GetNormalTexture():SetVertexColor(0.4, 0.4, 0.4, 1)
+                end
             end
             yOffset = yOffset + HDR_HEIGHT + 1
         end

@@ -12,6 +12,7 @@ Database.lua
 Tracker.lua
 Progression.lua
 Community.lua
+Creatures.lua
 Overlay.lua
 Details.lua
 Config.lua

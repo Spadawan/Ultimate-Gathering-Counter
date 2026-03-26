@@ -11,7 +11,7 @@ local Community = UGC.Community
 local PREFIX = "UGC_SYNC"
 local CHANNEL_NAME = "UGC"
 local TARGET_CHAT_FRAME_ID = 6
-local VERSION = 2
+local VERSION = 3
 local STALE_SECONDS = 7 * 24 * 3600
 local THROTTLE_SECONDS = 20
 local STATE_GRACE_SECONDS = 2.0
@@ -50,6 +50,9 @@ local function encodePayload(data)
         tostring(data.levels.fish.title or "Novice"),
         tostring(data.levels.leather.title or "Novice"),
         tostring(data.classToken or ""),
+        tostring(data.bestCreature and data.bestCreature.category or ""),
+        tostring(data.bestCreature and data.bestCreature.level or 0),
+        tostring(data.bestCreature and data.bestCreature.name or ""),
     }, "|")
 end
 
@@ -77,6 +80,11 @@ local function decodePayload(msg)
             leather = { level = tonumber(parts[10]) or 1, title = parts[14] or "Novice" },
         },
         classToken = parts[15],
+        bestCreature = {
+            category = parts[16] or "",
+            level = tonumber(parts[17]) or 0,
+            name = parts[18] or "",
+        },
     }
 end
 
@@ -118,7 +126,8 @@ function Community:_collectLocalSnapshot()
         levels[cat] = { level = p.level or 1, title = p.title or "Novice" }
     end
     local _, classToken = UnitClass("player")
-    return { totals = totals, levels = levels, classToken = classToken }
+    local bestCreature = UGC.Progression and UGC.Progression.GetBestCreature and UGC.Progression:GetBestCreature() or nil
+    return { totals = totals, levels = levels, classToken = classToken, bestCreature = bestCreature }
 end
 
 function Community:_send(msg)
@@ -148,6 +157,7 @@ function Community:BroadcastSnapshot(force)
         totals = snapshot.totals,
         levels = snapshot.levels,
         classToken = snapshot.classToken,
+        bestCreature = snapshot.bestCreature,
         updatedAt = UGC.Compat:GetServerTime(),
     })
 
@@ -271,6 +281,7 @@ function Community:OnAddonMessage(prefix, message, channel, sender)
         totals = payload.totals,
         levels = payload.levels,
         classToken = payload.classToken,
+        bestCreature = payload.bestCreature,
         updatedAt = UGC.Compat:GetServerTime(),
     })
 
