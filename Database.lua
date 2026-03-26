@@ -31,6 +31,7 @@ local DEFAULTS = {
         overlayHeight       = 360,  -- user-resized height
         detailsWidth        = 530,  -- user-resized details window size
         detailsHeight       = 480,
+        leaderboardAutoJoin = false, -- rejoin UGC channel automatically on login/reload
     },
     allTime        = {},
     weekly         = { weekStart = 0 },

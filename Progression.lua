@@ -12,13 +12,16 @@ local MAX_LEVEL = 100
 local XP_PER_HARVEST = 10
 local GAIN_POPUP_SECONDS = 1.8
 local CHAIN_WINDOW_SECONDS = 5 * 60
+local FISH_CHAIN_WINDOW_SECONDS = 3 * 60
 local CHAIN_BONUS_XP = 50
+local FISH_SUPER_CHAIN_COUNT = 15
+local FISH_SUPER_CHAIN_BONUS_XP = 100
 
 local CHAIN_REQUIREMENTS = {
     herbs = 10,
     ore = 10,
     leather = 10,
-    fish = 15,
+    fish = 7,
 }
 local BONUS_XP_BY_ITEM_ID = {
     [236780] = 100, -- Lotus nocturne
@@ -93,12 +96,39 @@ function Progression:_GetChainBonusXP(category)
     end
 
     local now = GetTime()
+    local chainWindow = CHAIN_WINDOW_SECONDS
+    if category == "fish" then
+        chainWindow = FISH_CHAIN_WINDOW_SECONDS
+    end
+
     local chain = self._chainState[category]
-    if not chain or (now - (chain.startTime or 0)) > CHAIN_WINDOW_SECONDS then
-        chain = { startTime = now, count = 1 }
+    if not chain or (now - (chain.startTime or 0)) > chainWindow then
+        chain = {
+            startTime = now,
+            count = 0,
+            fishTierAwards = 0,
+            fishSuperAwarded = false,
+        }
         self._chainState[category] = chain
-    else
-        chain.count = (chain.count or 0) + 1
+    end
+    chain.count = (chain.count or 0) + 1
+
+    if category == "fish" then
+        local bonusXP = 0
+
+        local earnedTiers = math.floor((chain.count or 0) / needed)
+        local missingTierAwards = earnedTiers - (chain.fishTierAwards or 0)
+        if missingTierAwards > 0 then
+            bonusXP = bonusXP + (missingTierAwards * CHAIN_BONUS_XP)
+            chain.fishTierAwards = earnedTiers
+        end
+
+        if chain.count >= FISH_SUPER_CHAIN_COUNT and not chain.fishSuperAwarded then
+            bonusXP = bonusXP + FISH_SUPER_CHAIN_BONUS_XP
+            chain.fishSuperAwarded = true
+        end
+
+        return bonusXP
     end
 
     if chain.count >= needed then

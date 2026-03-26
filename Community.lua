@@ -194,6 +194,11 @@ function Community:JoinLeaderboardChannel()
         return false
     end
 
+    local settings = UGC.DB and UGC.DB.GetSettings and UGC.DB:GetSettings()
+    if type(settings) == "table" then
+        settings.leaderboardAutoJoin = true
+    end
+
     local now = GetTime and GetTime() or 0
     self._pendingJoinUntil = now + STATE_GRACE_SECONDS
     self._pendingLeaveUntil = 0
@@ -215,6 +220,10 @@ function Community:LeaveLeaderboardChannel()
     local id = GetChannelName(CHANNEL_NAME)
     if id and id > 0 then
         LeaveChannelByName(CHANNEL_NAME)
+        local settings = UGC.DB and UGC.DB.GetSettings and UGC.DB:GetSettings()
+        if type(settings) == "table" then
+            settings.leaderboardAutoJoin = false
+        end
         local now = GetTime and GetTime() or 0
         self._pendingLeaveUntil = now + STATE_GRACE_SECONDS
         self._pendingJoinUntil = 0
@@ -226,6 +235,14 @@ end
 function Community:Init()
     if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
         C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
+    end
+
+    local settings = UGC.DB and UGC.DB.GetSettings and UGC.DB:GetSettings()
+    local shouldAutoJoin = type(settings) == "table" and settings.leaderboardAutoJoin
+    if shouldAutoJoin then
+        C_Timer.After(1.2, function()
+            Community:JoinLeaderboardChannel()
+        end)
     end
 
     C_Timer.After(2, function()
