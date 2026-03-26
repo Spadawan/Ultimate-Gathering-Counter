@@ -15,11 +15,11 @@ local BUBBLE_TEXTURE = "Interface\\AddOns\\UltimateGatheringCounter\\media\\bubb
 
 local ART_BY_CATEGORY = {
     herbs = {
-        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herb_01",
-        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herb_02",
-        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herb_03",
-        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herb_04",
-        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herb_05",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_01",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_02",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_03",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_04",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_05",
     },
 }
 
