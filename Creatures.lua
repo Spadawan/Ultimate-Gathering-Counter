@@ -122,7 +122,26 @@ function Creatures:Init()
     popup:SetPoint("CENTER", art, "TOP", 0, -5)
     popup:SetTextColor(0.4, 1.0, 0.4)
     popup:SetAlpha(0)
-    local popupDriver = CreateFrame("Frame", nil, f)
+    local popupAnim
+    if popup.CreateAnimationGroup then
+        popupAnim = popup:CreateAnimationGroup()
+        local fade = popupAnim:CreateAnimation("Alpha")
+        fade:SetFromAlpha(1)
+        fade:SetToAlpha(0)
+        fade:SetDuration(1.2)
+        fade:SetOrder(1)
+
+        local drift = popupAnim:CreateAnimation("Translation")
+        drift:SetOffset(0, 24)
+        drift:SetDuration(1.2)
+        drift:SetOrder(1)
+
+        popupAnim:SetScript("OnFinished", function()
+            popup:SetAlpha(0)
+            popup:ClearAllPoints()
+            popup:SetPoint("CENTER", art, "TOP", 0, -5)
+        end)
+    end
 
     local feedBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     feedBtn:SetSize(170, 24)
@@ -140,7 +159,7 @@ function Creatures:Init()
     self._expBg = expBg
     self._expText = expText
     self._popup = popup
-    self._popupDriver = popupDriver
+    self._popupAnim = popupAnim
     self._feedBtn = feedBtn
     self._activeCategory = "herbs"
     self:_SetCategory("herbs")
@@ -158,26 +177,13 @@ function Creatures:_PlayPopup(text, color)
     end
     self._popup:SetAlpha(1)
 
-    if self._popupDriver then
-        self._popupDriver:SetScript("OnUpdate", nil)
+    self._popup:ClearAllPoints()
+    self._popup:SetPoint("CENTER", self._art, "TOP", 0, -5)
+
+    if self._popupAnim then
+        self._popupAnim:Stop()
+        self._popupAnim:Play()
     end
-
-    local t0 = GetTime()
-    local fs = self._popup
-    if not self._popupDriver then return end
-
-    self._popupDriver:SetScript("OnUpdate", function()
-        local t = GetTime() - t0
-        fs:SetAlpha(math.max(0, 1 - (t / 1.2)))
-        fs:ClearAllPoints()
-        fs:SetPoint("CENTER", Creatures._art, "TOP", 0, -5 + (t * 24))
-        if t >= 1.2 then
-            fs:SetAlpha(0)
-            Creatures._popupDriver:SetScript("OnUpdate", nil)
-            fs:ClearAllPoints()
-            fs:SetPoint("CENTER", Creatures._art, "TOP", 0, -5)
-        end
-    end)
 end
 
 function Creatures:_SpawnBubbleFeedAnimation(sourceBtn)
