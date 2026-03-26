@@ -95,6 +95,13 @@ local CREATURE_DEFAULT_NAMES = {
     leather = "Snugglehide",
 }
 
+local function getCreaturePhaseForLevel(level)
+    if level <= 5 then return 1 end
+    if level <= 15 then return 2 end
+    if level <= 25 then return 3 end
+    if level <= 40 then return 4 end
+    return 5
+end
 
 Progression._recentGain = {}
 Progression._chainState = {}
@@ -205,16 +212,48 @@ function Progression:GetProgress(category)
     }
 end
 
-function Progression:GetCreatureXPRequirement(level)
+function Progression:GetCreatureXPRequirement(category, level)
     if level >= CREATURE_MAX_LEVEL then
         return 0
     end
-    return 100 + (level * 25)
+    return self:GetXPRequirement(category, level)
+end
+
+function Progression:_AdvanceCreatureNonEvolutionLevels(category, creature)
+    local changed = false
+    while creature.level < CREATURE_MAX_LEVEL do
+        local req = self:GetCreatureXPRequirement(category, creature.level)
+        if req <= 0 or (creature.xp or 0) < req then
+            break
+        end
+
+        local currentPhase = getCreaturePhaseForLevel(creature.level)
+        local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+        if nextPhase > currentPhase then
+            break
+        end
+
+        creature.xp = creature.xp - req
+        creature.level = creature.level + 1
+        creature.maxLevelReached = math.max(creature.maxLevelReached or creature.level, creature.level)
+        changed = true
+    end
+
+    if creature.level >= CREATURE_MAX_LEVEL then
+        creature.level = CREATURE_MAX_LEVEL
+        creature.xp = 0
+        changed = true
+    end
+
+    return changed
 end
 
 function Progression:GetCreatureProgress(category)
     local st = UGC.DB:GetCreatureProgress(category)
-    local reqXP = self:GetCreatureXPRequirement(st.level)
+    if self:_AdvanceCreatureNonEvolutionLevels(category, st) then
+        UGC.DB:SetCreatureProgress(category, st)
+    end
+    local reqXP = self:GetCreatureXPRequirement(category, st.level)
     return {
         unlocked = st.unlocked == true,
         level = st.level,
@@ -312,17 +351,70 @@ function Progression:FeedCreature(category)
     end
 
     creature.xp = (creature.xp or 0) + FEED_COST_XP
-    local leveled = false
-    while creature.level < CREATURE_MAX_LEVEL do
-        local req = self:GetCreatureXPRequirement(creature.level)
-        if creature.xp < req then
-            break
-        end
-        creature.xp = creature.xp - req
-        creature.level = creature.level + 1
-        creature.maxLevelReached = math.max(creature.maxLevelReached or creature.level, creature.level)
-        leveled = true
+    local leveled = self:_AdvanceCreatureNonEvolutionLevels(category, creature)
+
+    UGC.DB:SetCreatureProgress(category, creature)
+
+    if UGC.Community then
+        UGC.Community:BroadcastSnapshot(true)
     end
+    if creature.level < CREATURE_MAX_LEVEL then
+        local req = self:GetCreatureXPRequirement(category, creature.level)
+        local currentPhase = getCreaturePhaseForLevel(creature.level)
+        local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+        if req > 0 and creature.xp >= req and nextPhase > currentPhase then
+            return true, "ready"
+        end
+    end
+    if leveled then
+        return true, "levelup"
+    end
+    return true, "xp"
+end
+
+function Progression:CanEvolveCreature(category)
+    local creature = UGC.DB:GetCreatureProgress(category)
+    if self:_AdvanceCreatureNonEvolutionLevels(category, creature) then
+        UGC.DB:SetCreatureProgress(category, creature)
+    end
+    if not creature.unlocked or creature.level >= CREATURE_MAX_LEVEL then
+        return false
+    end
+    local req = self:GetCreatureXPRequirement(category, creature.level)
+    if req <= 0 or (creature.xp or 0) < req then
+        return false
+    end
+
+    local currentPhase = getCreaturePhaseForLevel(creature.level)
+    local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+    return nextPhase > currentPhase
+end
+
+function Progression:EvolveCreature(category)
+    local creature = UGC.DB:GetCreatureProgress(category)
+    if self:_AdvanceCreatureNonEvolutionLevels(category, creature) then
+        UGC.DB:SetCreatureProgress(category, creature)
+    end
+    if not creature.unlocked then
+        return false, "locked"
+    end
+    if creature.level >= CREATURE_MAX_LEVEL then
+        return false, "max"
+    end
+
+    local req = self:GetCreatureXPRequirement(category, creature.level)
+    if req <= 0 or (creature.xp or 0) < req then
+        return false, "xp"
+    end
+    local currentPhase = getCreaturePhaseForLevel(creature.level)
+    local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+    if nextPhase <= currentPhase then
+        return false, "phase"
+    end
+
+    creature.xp = creature.xp - req
+    creature.level = creature.level + 1
+    creature.maxLevelReached = math.max(creature.maxLevelReached or creature.level, creature.level)
 
     if creature.level >= CREATURE_MAX_LEVEL then
         creature.level = CREATURE_MAX_LEVEL
@@ -330,11 +422,59 @@ function Progression:FeedCreature(category)
     end
 
     UGC.DB:SetCreatureProgress(category, creature)
-
     if UGC.Community then
         UGC.Community:BroadcastSnapshot(true)
     end
-    return true, (leveled and "levelup" or "xp")
+    return true, "levelup"
+end
+
+function Progression:GrantProfessionXP(category, amount)
+    if not category or not UGC.CATEGORIES[category] then
+        return false, "category"
+    end
+    amount = tonumber(amount)
+    if not amount or amount <= 0 then
+        return false, "amount"
+    end
+
+    local state = UGC.DB:GetProfessionProgress(category)
+    if state.level >= MAX_LEVEL then
+        return false, "max"
+    end
+
+    state.xp = (state.xp or 0) + math.floor(amount)
+    local leveledUp = false
+    while state.level < MAX_LEVEL do
+        local req = self:GetXPRequirement(category, state.level)
+        if state.xp < req then
+            break
+        end
+        state.xp = state.xp - req
+        state.level = state.level + 1
+        state.maxLevelReached = math.max(state.maxLevelReached or state.level, state.level)
+        leveledUp = true
+    end
+
+    if state.level >= MAX_LEVEL then
+        state.level = MAX_LEVEL
+        state.xp = 0
+    end
+
+    UGC.DB:SetProfessionProgress(category, state)
+    self._recentGain[category] = { amount = math.floor(amount), t = GetTime() }
+
+    if state.level >= CREATURE_UNLOCK_LEVEL then
+        local creature = UGC.DB:GetCreatureProgress(category)
+        if not creature.unlocked then
+            creature.unlocked = true
+            creature.level = creature.level or 1
+            creature.maxLevelReached = math.max(creature.maxLevelReached or 1, creature.level or 1)
+            creature.name = creature.name or CREATURE_DEFAULT_NAMES[category] or "Gatherling"
+            UGC.DB:SetCreatureProgress(category, creature)
+        end
+    end
+
+    return true, { level = state.level, xp = state.xp, leveledUp = leveledUp }
 end
 
 function Progression:GetRecentGain(category)

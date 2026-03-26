@@ -60,7 +60,7 @@ end
 
 function Compat:CreateStarTexture(parent, anchor, relativeTo, xOffset)
     local tex = parent:CreateTexture(nil, "OVERLAY")
-    tex:SetSize(6, 6)
+    tex:SetSize(9, 9)
     tex:SetPoint(anchor, relativeTo, anchor, xOffset or 0, 0)
     tex:SetTexture("Interface\\Common\\ReputationStar")
     tex:Hide()
