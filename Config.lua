@@ -170,7 +170,11 @@ function Config:Init()
     scrollFrame:EnableMouseWheel(true)
     scrollFrame:SetScript("OnMouseWheel", function(self, delta)
         local cur = self:GetVerticalScroll() or 0
-        local nextVal = math.max(0, cur - (delta * 30))
+        local child = self:GetScrollChild()
+        local childHeight = child and child:GetHeight() or 0
+        local frameHeight = self:GetHeight() or 0
+        local maxScroll = math.max(0, childHeight - frameHeight)
+        local nextVal = math.max(0, math.min(maxScroll, cur - (delta * 30)))
         self:SetVerticalScroll(nextVal)
     end)
 
