@@ -134,7 +134,7 @@ function Creatures:Init()
     expText:SetPoint("CENTER", expBg, "CENTER", 0, 0)
 
     local popup = f:CreateFontString(nil, "HIGHLIGHT", "GameFontNormalLarge")
-    popup:SetPoint("CENTER", art, "TOP", 0, -5)
+    popup:SetPoint("CENTER", art, "CENTER", 0, 12)
     popup:SetTextColor(0.4, 1.0, 0.4)
     popup:SetAlpha(0)
     local popupAnim
@@ -154,7 +154,7 @@ function Creatures:Init()
         popupAnim:SetScript("OnFinished", function()
             popup:SetAlpha(0)
             popup:ClearAllPoints()
-            popup:SetPoint("CENTER", art, "TOP", 0, -5)
+            popup:SetPoint("CENTER", art, "CENTER", 0, 12)
         end)
     end
 
@@ -184,9 +184,10 @@ function Creatures:Init()
     evolveNewFx:SetBlendMode("ADD")
     evolveNewFx:SetAlpha(0)
 
-    local levelupShineFx = f:CreateTexture(nil, "HIGHLIGHT")
+    local levelupShineFx = f:CreateTexture(nil, "OVERLAY")
     levelupShineFx:SetAllPoints(art)
     levelupShineFx:SetBlendMode("ADD")
+    levelupShineFx:SetColorTexture(1.0, 0.92, 0.25, 1)
     levelupShineFx:SetAlpha(0)
 
     self.frame = f
@@ -220,7 +221,7 @@ function Creatures:_PlayPopup(text, color)
     self._popup:SetAlpha(1)
 
     self._popup:ClearAllPoints()
-    self._popup:SetPoint("CENTER", self._art, "TOP", 0, -5)
+    self._popup:SetPoint("CENTER", self._art, "CENTER", 0, 12)
 
     if self._popupAnim then
         self._popupAnim:Stop()
@@ -284,23 +285,22 @@ function Creatures:_PlayFeedReaction()
     self._feedReactAnim:Play()
 end
 
-function Creatures:_PlayLevelupShine(texturePath)
+function Creatures:_PlayLevelupShine()
     if not self._levelupShineFx then return end
-    self._levelupShineFx:SetTexture(texturePath or self._art:GetTexture())
-    self._levelupShineFx:SetVertexColor(1.0, 0.92, 0.35, 1)
+    self._levelupShineFx:SetColorTexture(1.0, 0.92, 0.25, 1)
     self._levelupShineFx:SetAlpha(0)
 
     if not self._levelupShineAnim then
         self._levelupShineAnim = self._levelupShineFx:CreateAnimationGroup()
         local fadeIn = self._levelupShineAnim:CreateAnimation("Alpha")
         fadeIn:SetFromAlpha(0)
-        fadeIn:SetToAlpha(1)
-        fadeIn:SetDuration(0.15)
+        fadeIn:SetToAlpha(0.78)
+        fadeIn:SetDuration(0.12)
         fadeIn:SetOrder(1)
         local fadeOut = self._levelupShineAnim:CreateAnimation("Alpha")
-        fadeOut:SetFromAlpha(1)
+        fadeOut:SetFromAlpha(0.78)
         fadeOut:SetToAlpha(0)
-        fadeOut:SetDuration(1.0)
+        fadeOut:SetDuration(1.15)
         fadeOut:SetOrder(2)
         self._levelupShineAnim:SetScript("OnFinished", function()
             if Creatures._levelupShineFx then
@@ -358,32 +358,37 @@ end
 
 function Creatures:_SpawnFeedLeafParticles()
     if not self.frame or not self._art then return end
-    for i = 1, 16 do
+    for i = 1, 30 do
         local tex = self.frame:CreateTexture(nil, "OVERLAY")
         tex:SetTexture(FEED_LEAF_PARTICLES[math.random(1, #FEED_LEAF_PARTICLES)])
         tex:SetBlendMode("BLEND")
-        local size = math.random(16, 26)
+        local size = math.random(9, 15)
         tex:SetSize(size, size)
         tex:SetRotation(math.rad(math.random(0, 359)))
-        tex:SetPoint("CENTER", self._art, "CENTER", math.random(-24, 24), math.random(-30, 12))
+        tex:SetPoint("CENTER", self._art, "CENTER", math.random(-22, 22), math.random(-18, 18))
         tex:SetAlpha(0)
 
         local ag = tex:CreateAnimationGroup()
         local fadeIn = ag:CreateAnimation("Alpha")
         fadeIn:SetFromAlpha(0)
-        fadeIn:SetToAlpha(0.9)
-        fadeIn:SetDuration(0.1 + math.random() * 0.1)
+        fadeIn:SetToAlpha(0.8)
+        fadeIn:SetDuration(0.06 + math.random() * 0.08)
         fadeIn:SetOrder(1)
 
-        local drift = ag:CreateAnimation("Translation")
-        drift:SetOffset(math.random(-45, 45), math.random(24, 78))
-        drift:SetDuration(0.55 + math.random() * 0.35)
-        drift:SetOrder(1)
+        local pop = ag:CreateAnimation("Translation")
+        pop:SetOffset(math.random(-24, 24), math.random(8, 26))
+        pop:SetDuration(0.12 + math.random() * 0.08)
+        pop:SetOrder(1)
+
+        local fall = ag:CreateAnimation("Translation")
+        fall:SetOffset(math.random(-65, 65), -math.random(35, 95))
+        fall:SetDuration(0.55 + math.random() * 0.45)
+        fall:SetOrder(2)
 
         local fadeOut = ag:CreateAnimation("Alpha")
-        fadeOut:SetFromAlpha(0.9)
+        fadeOut:SetFromAlpha(0.8)
         fadeOut:SetToAlpha(0)
-        fadeOut:SetDuration(0.5 + math.random() * 0.45)
+        fadeOut:SetDuration(0.65 + math.random() * 0.45)
         fadeOut:SetOrder(2)
 
         ag:SetScript("OnFinished", function()
@@ -414,7 +419,7 @@ function Creatures:_Feed()
         self:_PlayPopup("Ready to evolve!", { 1.0, 0.9, 0.3 })
     elseif result == "levelup" then
         self:_PlayPopup("Level up!", { 0.4, 1.0, 0.3 })
-        self:_PlayLevelupShine(self._art:GetTexture())
+        self:_PlayLevelupShine()
         self:_SpawnLevelupParticles()
         self:_PlayLevelupSound()
     else
@@ -509,7 +514,7 @@ function Creatures:_Evolve()
 
     self:Refresh()
     self:_PlayEvolutionAnimation(oldTexture, newTexture)
-    self:_PlayLevelupShine(newTexture)
+    self:_PlayLevelupShine()
     self:_SpawnLevelupParticles()
     self:_PlayLevelupSound()
     self:_PlayPopup("Level up!", { 0.4, 1.0, 0.3 })
