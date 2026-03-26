@@ -95,7 +95,7 @@ function Creatures:Init()
     end
 
     local art = f:CreateTexture(nil, "ARTWORK")
-    art:SetSize(210, 210)
+    art:SetSize(168, 168)
     art:SetPoint("TOP", f, "TOP", 0, -86)
     art:SetTexCoord(0.01, 0.99, 0.01, 0.99)
 
@@ -122,21 +122,14 @@ function Creatures:Init()
     popup:SetPoint("CENTER", art, "TOP", 0, 20)
     popup:SetTextColor(0.4, 1.0, 0.4)
     popup:SetAlpha(0)
+    local popupDriver = CreateFrame("Frame", nil, f)
 
     local feedBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     feedBtn:SetSize(170, 24)
-    feedBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 48)
+    feedBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 14)
     feedBtn:SetText("Feed (-100 EXP)")
     feedBtn:SetScript("OnClick", function(btn)
         Creatures:_Feed(btn)
-    end)
-
-    local renameBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    renameBtn:SetSize(170, 22)
-    renameBtn:SetPoint("BOTTOM", feedBtn, "TOP", 0, 6)
-    renameBtn:SetText("Rename creature")
-    renameBtn:SetScript("OnClick", function()
-        Creatures:_RenameCurrent()
     end)
 
     self.frame = f
@@ -147,8 +140,8 @@ function Creatures:Init()
     self._expBg = expBg
     self._expText = expText
     self._popup = popup
+    self._popupDriver = popupDriver
     self._feedBtn = feedBtn
-    self._renameBtn = renameBtn
     self._activeCategory = "herbs"
     self:_SetCategory("herbs")
 
@@ -165,15 +158,22 @@ function Creatures:_PlayPopup(text, color)
     end
     self._popup:SetAlpha(1)
 
+    if self._popupDriver then
+        self._popupDriver:SetScript("OnUpdate", nil)
+    end
+
     local t0 = GetTime()
-    self._popup:SetScript("OnUpdate", function(fs)
+    local fs = self._popup
+    if not self._popupDriver then return end
+
+    self._popupDriver:SetScript("OnUpdate", function()
         local t = GetTime() - t0
         fs:SetAlpha(math.max(0, 1 - (t / 1.2)))
         fs:ClearAllPoints()
         fs:SetPoint("CENTER", Creatures._art, "TOP", 0, 20 + (t * 24))
         if t >= 1.2 then
             fs:SetAlpha(0)
-            fs:SetScript("OnUpdate", nil)
+            Creatures._popupDriver:SetScript("OnUpdate", nil)
             fs:ClearAllPoints()
             fs:SetPoint("CENTER", Creatures._art, "TOP", 0, 20)
         end
@@ -354,7 +354,6 @@ function Creatures:Refresh()
         self._expFill:SetWidth(1)
         self._expText:SetText("")
         self._feedBtn:Disable()
-        self._renameBtn:Disable()
         return
     end
 
@@ -373,7 +372,6 @@ function Creatures:Refresh()
     self._expText:SetText(string.format("%d / %d EXP", cp.xp, cp.reqXP))
 
     self._feedBtn:SetEnabled(cp.level < cp.maxLevel)
-    self._renameBtn:Enable()
 end
 
 function Creatures:Toggle()
