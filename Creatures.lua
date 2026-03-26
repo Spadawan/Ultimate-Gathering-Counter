@@ -14,8 +14,8 @@ local ICON_PATH = "Interface\\AddOns\\UltimateGatheringCounter\\media\\monster"
 local LEVELUP_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\LevelUp.ogg"
 local FEED_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\iEating1.ogg"
 local LEVELUP_PARTICLES = {
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02.tga",
 }
 local FEED_PARTICLES_BY_CATEGORY = {
     herbs = {
@@ -151,8 +151,9 @@ function Creatures:Init()
     local expText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     expText:SetPoint("CENTER", expBg, "CENTER", 0, 0)
 
-    local popup = f:CreateFontString(nil, "HIGHLIGHT", "GameFontNormalLarge")
+    local popup = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     popup:SetPoint("CENTER", art, "CENTER", 0, 12)
+    popup:SetDrawLayer("OVERLAY", 7)
     popup:SetTextColor(0.4, 1.0, 0.4)
     popup:SetAlpha(0)
     local popupAnim
@@ -169,12 +170,6 @@ function Creatures:Init()
         fade:SetToAlpha(0)
         fade:SetDuration(POPUP_FADE_DURATION)
         fade:SetOrder(2)
-
-        local popIn = popupAnim:CreateAnimation("Scale")
-        popIn:SetScale(1.08, 1.08)
-        popIn:SetOrigin("CENTER", 0, 0)
-        popIn:SetDuration(0.12)
-        popIn:SetOrder(1)
 
         local drift = popupAnim:CreateAnimation("Translation")
         drift:SetOffset(0, 20)
@@ -346,7 +341,8 @@ end
 function Creatures:_SpawnLevelupParticles()
     if not self.frame or not self._art then return end
     for i = 1, 22 do
-        local tex = self.frame:CreateTexture(nil, "HIGHLIGHT")
+        local tex = self.frame:CreateTexture(nil, "OVERLAY")
+        tex:SetDrawLayer("OVERLAY", 6)
         tex:SetTexture(LEVELUP_PARTICLES[((i - 1) % #LEVELUP_PARTICLES) + 1])
         tex:SetBlendMode("ADD")
         local size = math.random(14, 30)
