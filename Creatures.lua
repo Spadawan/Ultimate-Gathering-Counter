@@ -680,6 +680,9 @@ end
 
 function Creatures:Toggle()
     if not self.frame then return end
+    if UGC.DB and UGC.DB:GetSettings().professionOnlyMode then
+        return
+    end
     if self.frame:IsShown() then
         self.frame:Hide()
     else

@@ -106,6 +106,11 @@ end
 Progression._recentGain = {}
 Progression._chainState = {}
 
+function Progression:_IsProfessionOnlyMode()
+    local s = UGC.DB and UGC.DB:GetSettings()
+    return s and s.professionOnlyMode == true
+end
+
 function Progression:_GetChainBonusXP(category)
     local needed = CHAIN_REQUIREMENTS[category]
     if not needed then
@@ -552,7 +557,9 @@ function Progression:AddGatherAction(category, itemID)
             creature.maxLevelReached = math.max(creature.maxLevelReached or 1, creature.level or 1)
             creature.name = creature.name or CREATURE_DEFAULT_NAMES[category] or "Gatherling"
             UGC.DB:SetCreatureProgress(category, creature)
-            self:_AnnounceCenter(string.format("NEW CREATURE FOUND! %s companion unlocked.", catLabel))
+            if not self:_IsProfessionOnlyMode() then
+                self:_AnnounceCenter(string.format("NEW CREATURE FOUND! %s companion unlocked.", catLabel))
+            end
         end
     end
 
@@ -562,19 +569,23 @@ function Progression:AddGatherAction(category, itemID)
         gainLabel = string.format("+%d (%d bonus chain)", xpGain, bonusXPGain)
     end
 
-    print(string.format("|cff33E633UGC|r |cffffffff%s %s EXP|r (%d/%d)",
-        gainLabel, catLabel, state.xp, reqXP))
+    if not self:_IsProfessionOnlyMode() then
+        print(string.format("|cff33E633UGC|r |cffffffff%s %s EXP|r (%d/%d)",
+            gainLabel, catLabel, state.xp, reqXP))
+    end
 
-    if leveledUp then
+    if leveledUp and not self:_IsProfessionOnlyMode() then
         self:_AnnounceCenter(string.format("LEVEL UP! %s reached Level %d", catLabel, state.level))
     end
 
-    if bonusXPGain > 0 then
+    if bonusXPGain > 0 and not self:_IsProfessionOnlyMode() then
         self:_AnnounceCenter(string.format("BONUS CHAIN! +%d %s EXP", bonusXPGain, catLabel))
     end
 
-    for _, t in ipairs(unlockedTitles) do
-        self:_AnnounceCenter(string.format("NEW TITLE UNLOCKED! %s: \"%s\"", catLabel, t.title))
+    if not self:_IsProfessionOnlyMode() then
+        for _, t in ipairs(unlockedTitles) do
+            self:_AnnounceCenter(string.format("NEW TITLE UNLOCKED! %s: \"%s\"", catLabel, t.title))
+        end
     end
 
     self._recentGain[category] = { amount = xpGain, t = GetTime() }

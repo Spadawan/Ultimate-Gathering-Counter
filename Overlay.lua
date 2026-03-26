@@ -350,6 +350,9 @@ function Overlay:Init()
     monsterBtn:SetHighlightTexture(ICON_MONSTER, "ADD")
     monsterBtn:GetNormalTexture():SetTexCoord(0.08, 0.92, 0.08, 0.92)
     monsterBtn:SetScript("OnClick", function()
+        if UGC.DB:GetSettings().professionOnlyMode then
+            return
+        end
         if UGC.Creatures then
             UGC.Creatures:Toggle()
             Overlay:Refresh()
@@ -584,7 +587,9 @@ function Overlay:Refresh()
         local btn = self.frame._monsterBtn
         if btn and UGC.Creatures then
             local unlocked = UGC.Creatures:IsAnyCreatureUnlocked()
-            btn:SetEnabled(unlocked)
+            local professionOnly = settings.professionOnlyMode == true
+            btn:SetShown(not professionOnly)
+            btn:SetEnabled(unlocked and not professionOnly)
             if unlocked then
                 btn:GetNormalTexture():SetVertexColor(1, 1, 1, 1)
             else
@@ -640,11 +645,15 @@ function Overlay:Refresh()
             hdr:Show()
 
             local prog = UGC.Progression and UGC.Progression:GetProgress(currentCat)
-            if prog then
+            if prog and not settings.professionOnlyMode then
                 local catTitle = prog.title or "Novice"
                 hdr.label:SetText(string.format("%s  |cff33ff33Lv.%d|r |cff9f9f9f(Best %d)|r",
                     catData.label:upper(), prog.level, prog.maxLevelReached or prog.level))
                 hdr.count:SetText(string.format("%d items  •  %s", catCounts[currentCat], catTitle))
+                hdr.xpBg:Show()
+                hdr.xpFill:Show()
+                hdr.xpText:Show()
+                hdr.gainText:Show()
 
                 local barWidth = math.max(70, self.content:GetWidth() - 130)
                 hdr.xpBg:SetWidth(barWidth)
@@ -664,20 +673,10 @@ function Overlay:Refresh()
             else
                 hdr.label:SetText(catData.label:upper())
                 hdr.count:SetText(catCounts[currentCat] .. " items")
-                hdr.xpBg:SetWidth(math.max(70, self.content:GetWidth() - 130))
-                hdr.xpFill:SetWidth(1)
-                hdr.xpText:SetText("")
-                hdr.gainText:SetText("")
-            end
-
-            if UGC.Creatures and monsterBtn then
-                local unlocked = UGC.Creatures:IsAnyCreatureUnlocked()
-                monsterBtn:SetEnabled(unlocked)
-                if unlocked then
-                    monsterBtn:GetNormalTexture():SetVertexColor(1, 1, 1, 1)
-                else
-                    monsterBtn:GetNormalTexture():SetVertexColor(0.4, 0.4, 0.4, 1)
-                end
+                hdr.xpBg:Hide()
+                hdr.xpFill:Hide()
+                hdr.xpText:Hide()
+                hdr.gainText:Hide()
             end
             yOffset = yOffset + HDR_HEIGHT + 1
         end
