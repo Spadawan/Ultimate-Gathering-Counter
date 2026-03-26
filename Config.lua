@@ -164,17 +164,36 @@ function Config:Init()
     closeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight", "ADD")
     closeBtn:SetScript("OnClick", function() Config:Hide() end)
 
+    local scrollFrame = CreateFrame("ScrollFrame", "UGC_ConfigScroll", f, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -30)
+    scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -28, 30)
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local cur = self:GetVerticalScroll() or 0
+        local child = self:GetScrollChild()
+        local childHeight = child and child:GetHeight() or 0
+        local frameHeight = self:GetHeight() or 0
+        local maxScroll = math.max(0, childHeight - frameHeight)
+        local nextVal = math.max(0, math.min(maxScroll, cur - (delta * 30)))
+        self:SetVerticalScroll(nextVal)
+    end)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetWidth(WIN_WIDTH - 40)
+    content:SetHeight(20)
+    scrollFrame:SetScrollChild(content)
+
     local s  = UGC.DB:GetSettings()
-    local yOff = -32
+    local yOff = -4
 
     -- ════════════════════════════════════════════════════
     -- SECTION: Display
     -- ════════════════════════════════════════════════════
-    local _, y = MakeSection(f, "Display", yOff)
+    local _, y = MakeSection(content, "Display", yOff)
     yOff = y
 
     -- Show overlay
-    _, yOff = MakeCheckbox(f, "Show overlay on login", yOff,
+    _, yOff = MakeCheckbox(content, "Show overlay on login", yOff,
         function() return s.overlayVisible end,
         function(v)
             s.overlayVisible = v
@@ -182,12 +201,12 @@ function Config:Init()
         end)
 
     -- Lock position
-    _, yOff = MakeCheckbox(f, "Lock overlay position (disable dragging)", yOff,
+    _, yOff = MakeCheckbox(content, "Lock overlay position (disable dragging)", yOff,
         function() return s.overlayLocked end,
         function(v) s.overlayLocked = v end)
 
     -- Show per-hour rates
-    _, yOff = MakeCheckbox(f, "Show per-hour rates in overlay", yOff,
+    _, yOff = MakeCheckbox(content, "Show per-hour rates in overlay", yOff,
         function() return s.showPerHourRates end,
         function(v)
             s.showPerHourRates = v
@@ -195,7 +214,7 @@ function Config:Init()
         end)
 
     -- Show auction values
-    _, yOff = MakeCheckbox(f, "Show Auctionator values", yOff,
+    _, yOff = MakeCheckbox(content, "Show Auctionator values", yOff,
         function() return s.showValues end,
         function(v)
             s.showValues = v
@@ -203,7 +222,7 @@ function Config:Init()
         end)
 
     -- Overlay scale slider
-    _, yOff = MakeSlider(f, "UGC_ScaleSlider", "Overlay scale:", yOff,
+    _, yOff = MakeSlider(content, "UGC_ScaleSlider", "Overlay scale:", yOff,
         0.5, 2.0, 0.05,
         function() return s.overlayScale or 1.0 end,
         function(v)
@@ -213,7 +232,7 @@ function Config:Init()
     yOff = yOff - 2
 
     -- Minimum qty
-    _, yOff = MakeNumericBox(f,
+    _, yOff = MakeNumericBox(content,
         "Minimum bag qty to display (0 = show all):", yOff,
         function() return s.minimumQty or 0 end,
         function(v)
@@ -223,7 +242,7 @@ function Config:Init()
     yOff = yOff - 4
 
     -- Fade overlay when unfocused
-    _, yOff = MakeCheckbox(f, "Fade overlay to 50% when mouse is not over it", yOff,
+    _, yOff = MakeCheckbox(content, "Fade overlay to 50% when mouse is not over it", yOff,
         function() return s.fadeWhenUnfocused end,
         function(v)
             s.fadeWhenUnfocused = v
@@ -235,7 +254,7 @@ function Config:Init()
     yOff = yOff - 4
 
     -- Overlay base transparency slider
-    _, yOff = MakeSlider(f, "UGC_AlphaSlider", "Overlay transparency:", yOff,
+    _, yOff = MakeSlider(content, "UGC_AlphaSlider", "Overlay transparency:", yOff,
         0.1, 1.0, 0.05,
         function() return s.overlayAlpha or 1.0 end,
         function(v)
@@ -251,10 +270,24 @@ function Config:Init()
         end)
     yOff = yOff - 4
 
+    _, yOff = MakeCheckbox(content, "Profession-only mode (hide XP/chains/creatures)", yOff,
+        function() return s.professionOnlyMode == true end,
+        function(v)
+            s.professionOnlyMode = v
+            if v and UGC.Creatures and UGC.Creatures.frame then
+                UGC.Creatures.frame:Hide()
+            end
+            if UGC.Overlay then UGC.Overlay:Refresh() end
+            if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
+                UGC.Details:Refresh()
+            end
+        end)
+    yOff = yOff - 4
+
     -- ════════════════════════════════════════════════════
     -- SECTION: Categories
     -- ════════════════════════════════════════════════════
-    _, y = MakeSection(f, "Categories to Track", yOff)
+    _, y = MakeSection(content, "Categories to Track", yOff)
     yOff = y
 
     local catDefs = {
@@ -267,7 +300,7 @@ function Config:Init()
         local catKey  = cd.key
         local catData = UGC.CATEGORIES[catKey]
         local cb
-        cb, yOff = MakeCheckbox(f,
+        cb, yOff = MakeCheckbox(content,
             string.format("|cff%s%s|r", catData.hex, cd.label),
             yOff,
             function() return s.showCategories[catKey] end,
@@ -281,16 +314,16 @@ function Config:Init()
     -- ════════════════════════════════════════════════════
     -- SECTION: Detection
     -- ════════════════════════════════════════════════════
-    _, y = MakeSection(f, "Detection", yOff)
+    _, y = MakeSection(content, "Detection", yOff)
     yOff = y
 
-    _, yOff = MakeCheckbox(f,
+    _, yOff = MakeCheckbox(content,
         "Secondary loot detection via chat (item discovery only)", yOff,
         function() return s.chatLootDetect end,
         function(v) s.chatLootDetect = v end)
 
-    local chatHint = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    chatHint:SetPoint("TOPLEFT", f, "TOPLEFT", 36, yOff + 4)
+    local chatHint = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    chatHint:SetPoint("TOPLEFT", content, "TOPLEFT", 36, yOff + 4)
     chatHint:SetWidth(WIN_WIDTH - 46)
     chatHint:SetText("When enabled, detects new item types from loot messages.\nCounting now requires a loot message and a matching bag update to avoid false positives on login.")
     chatHint:SetJustifyH("LEFT")
@@ -300,10 +333,10 @@ function Config:Init()
     -- ════════════════════════════════════════════════════
     -- SECTION: Data Management
     -- ════════════════════════════════════════════════════
-    _, y = MakeSection(f, "Data Management", yOff)
+    _, y = MakeSection(content, "Data Management", yOff)
     yOff = y - 6
 
-    MakeButton(f, "Reset Session", 140, 24, 10, yOff, function()
+    MakeButton(content, "Reset Session", 140, 24, 10, yOff, function()
         UGC.Tracker:ResetSession()
         if UGC.Overlay then UGC.Overlay:Refresh() end
         if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
@@ -331,12 +364,12 @@ function Config:Init()
         }
     end
 
-    MakeButton(f, "Reset Data", 155, 24, 160, yOff, function()
+    MakeButton(content, "Reset Data", 155, 24, 160, yOff, function()
         StaticPopup_Show("UGC_CONFIRM_RESET_DATA")
     end)
 
-    local resetHint = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    resetHint:SetPoint("TOPLEFT", f, "TOPLEFT", 14, yOff - 30)
+    local resetHint = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    resetHint:SetPoint("TOPLEFT", content, "TOPLEFT", 14, yOff - 30)
     resetHint:SetWidth(WIN_WIDTH - 28)
     resetHint:SetJustifyH("LEFT")
     resetHint:SetText("Reset Data deletes all saved statistics (all-time, weekly, daily, hourly) after confirmation.")
@@ -344,8 +377,8 @@ function Config:Init()
     yOff = yOff - 52
 
     -- Auctionator status note
-    local aucNote = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    aucNote:SetPoint("TOPLEFT", f, "TOPLEFT", 14, yOff)
+    local aucNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    aucNote:SetPoint("TOPLEFT", content, "TOPLEFT", 14, yOff)
     aucNote:SetWidth(WIN_WIDTH - 28)
     aucNote:SetJustifyH("LEFT")
 
@@ -363,6 +396,8 @@ function Config:Init()
     verLine:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -12, 10)
     verLine:SetText("Ultimate Gathering Counter v" .. UGC.VERSION)
     verLine:SetTextColor(0.3, 0.3, 0.3)
+
+    content:SetHeight(math.max(20, -yOff + 50))
 
     self.frame = f
     f:Hide()

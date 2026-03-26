@@ -629,6 +629,10 @@ function Details:Init()
     self.frame   = f
     self.content = content
     self.rows    = {}
+    self._profPanel = profPanel
+    self._detailsColHdr = colHdr
+    self._detailsDivider = div
+    self._detailsScrollFrame = scrollFrame
     self._leaderboardChannelBtn = leaderboardChannelBtn
 
     f:Hide()
@@ -663,6 +667,8 @@ end
 function Details:_ApplyRowLayout(mode)
     local isLeaderboard = (mode == "leaderboard")
     local contentWidth = (self.content and self.content:GetWidth()) or (WINDOW_WIDTH - 34)
+    local settings = UGC.DB:GetSettings()
+    local headerY = (settings and settings.professionOnlyMode) and -78 or -164
 
     local nameWidth = isLeaderboard and 130 or 160
     local countX = isLeaderboard and 170 or 210
@@ -675,8 +681,8 @@ function Details:_ApplyRowLayout(mode)
     if self._itemColLabel then
         self._itemColLabel:SetWidth(nameWidth)
         self._itemColLabel:ClearAllPoints()
-        self._itemColLabel:SetPoint("LEFT", self.frame, "TOPLEFT", 32, -164)
-        self._itemColLabel:SetPoint("TOP", self.frame, "TOP", 0, -164)
+        self._itemColLabel:SetPoint("LEFT", self.frame, "TOPLEFT", 32, headerY)
+        self._itemColLabel:SetPoint("TOP", self.frame, "TOP", 0, headerY)
         if isLeaderboard then
             self._itemColLabel:SetText("Player")
         else
@@ -687,17 +693,17 @@ function Details:_ApplyRowLayout(mode)
     if self._countHeader then
         self._countHeader:SetWidth(countW)
         self._countHeader:ClearAllPoints()
-        self._countHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + countX, -164)
+        self._countHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + countX, headerY)
     end
     if self._valueHeader then
         self._valueHeader:SetWidth(valueW)
         self._valueHeader:ClearAllPoints()
-        self._valueHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + valueX, -164)
+        self._valueHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + valueX, headerY)
     end
     if self._pctHeader then
         self._pctHeader:SetWidth(pctW)
         self._pctHeader:ClearAllPoints()
-        self._pctHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + pctX, -164)
+        self._pctHeader:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 6 + pctX, headerY)
     end
 
     for _, row in ipairs(self.rows or {}) do
@@ -905,7 +911,30 @@ end
 function Details:Refresh()
     if not self.frame or not self.frame:IsShown() then return end
 
-    if self._professionRows and UGC.Progression then
+    local settings  = UGC.DB:GetSettings()
+    local professionOnly = settings.professionOnlyMode == true
+
+    if self._profPanel and self._detailsColHdr and self._detailsDivider and self._detailsScrollFrame then
+        if professionOnly then
+            self._profPanel:Hide()
+            self._detailsColHdr:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   6, -78)
+            self._detailsColHdr:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -22, -78)
+            self._detailsDivider:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   8, -95)
+            self._detailsDivider:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -22, -95)
+            self._detailsScrollFrame:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",    6, -98)
+            self._detailsScrollFrame:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -22, 96)
+        else
+            self._profPanel:Show()
+            self._detailsColHdr:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   6, -164)
+            self._detailsColHdr:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -22, -164)
+            self._detailsDivider:SetPoint("TOPLEFT",  self.frame, "TOPLEFT",   8, -181)
+            self._detailsDivider:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -22, -181)
+            self._detailsScrollFrame:SetPoint("TOPLEFT",     self.frame, "TOPLEFT",    6, -184)
+            self._detailsScrollFrame:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -22, 96)
+        end
+    end
+
+    if self._professionRows and UGC.Progression and not professionOnly then
         for _, cat in ipairs(PROF_ORDER) do
             local row = self._professionRows[cat]
             local catData = UGC.CATEGORIES[cat]
@@ -936,8 +965,6 @@ function Details:Refresh()
 
     local period    = self._currentTab    or "allTime"
     local catFilter = (self._currentFilter ~= "all") and self._currentFilter or nil
-    local settings  = UGC.DB:GetSettings()
-
     if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Count") end
     if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Value") end
     if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("% Total") end

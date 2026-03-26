@@ -31,6 +31,7 @@ local DEFAULTS = {
         overlayHeight       = 360,  -- user-resized height
         detailsWidth        = 530,  -- user-resized details window size
         detailsHeight       = 480,
+        professionOnlyMode  = false, -- hide RPG/progression features (XP, chains, creatures)
         leaderboardAutoJoin = false, -- rejoin UGC channel automatically on login/reload
     },
     allTime        = {},
