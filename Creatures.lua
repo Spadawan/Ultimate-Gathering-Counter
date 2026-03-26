@@ -183,13 +183,17 @@ end
 function Creatures:_SpawnBubbleFeedAnimation(sourceBtn)
     if not self.frame or not self._art or not sourceBtn then return end
 
-    local sx, sy = sourceBtn:GetCenter()
-    local dx, dy = self._art:GetCenter()
-    if not (sx and sy and dx and dy) then return end
+    local function toUIParentCoords(frame)
+        local x, y = frame:GetCenter()
+        if not (x and y) then return nil, nil end
+        local frameScale = frame:GetEffectiveScale() or 1
+        local parentScale = UIParent:GetEffectiveScale() or 1
+        return (x * frameScale) / parentScale, (y * frameScale) / parentScale
+    end
 
-    local parent = UIParent
-    local px, py = parent:GetCenter()
-    px, py = px or 0, py or 0
+    local sx, sy = toUIParentCoords(sourceBtn)
+    local dx, dy = toUIParentCoords(self._art)
+    if not (sx and sy and dx and dy) then return end
 
     for i = 1, 14 do
         local b = CreateFrame("Frame", nil, UIParent)
