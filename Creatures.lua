@@ -59,7 +59,8 @@ local CUTE_NAMES = {
     leather = "Snugglehide",
 }
 
-local POPUP_DURATION = 2.0
+local POPUP_HOLD_DURATION = 0.45
+local POPUP_FADE_DURATION = 1.55
 local ART_SIZE_SMALL = 168
 
 local function getPhaseForLevel(level)
@@ -157,16 +158,28 @@ function Creatures:Init()
     local popupAnim
     if popup.CreateAnimationGroup then
         popupAnim = popup:CreateAnimationGroup()
+        local hold = popupAnim:CreateAnimation("Alpha")
+        hold:SetFromAlpha(1)
+        hold:SetToAlpha(1)
+        hold:SetDuration(POPUP_HOLD_DURATION)
+        hold:SetOrder(1)
+
         local fade = popupAnim:CreateAnimation("Alpha")
         fade:SetFromAlpha(1)
         fade:SetToAlpha(0)
-        fade:SetDuration(POPUP_DURATION)
-        fade:SetOrder(1)
+        fade:SetDuration(POPUP_FADE_DURATION)
+        fade:SetOrder(2)
+
+        local popIn = popupAnim:CreateAnimation("Scale")
+        popIn:SetScale(1.08, 1.08)
+        popIn:SetOrigin("CENTER", 0, 0)
+        popIn:SetDuration(0.12)
+        popIn:SetOrder(1)
 
         local drift = popupAnim:CreateAnimation("Translation")
         drift:SetOffset(0, 20)
-        drift:SetDuration(POPUP_DURATION)
-        drift:SetOrder(1)
+        drift:SetDuration(POPUP_HOLD_DURATION + POPUP_FADE_DURATION)
+        drift:SetOrder(2)
 
         popupAnim:SetScript("OnFinished", function()
             popup:SetAlpha(0)
@@ -345,25 +358,31 @@ function Creatures:_SpawnLevelupParticles()
         local fadeIn = ag:CreateAnimation("Alpha")
         fadeIn:SetFromAlpha(0)
         fadeIn:SetToAlpha(0.95)
-        fadeIn:SetDuration(0.12 + math.random() * 0.1)
+        fadeIn:SetDuration(0.2 + math.random() * 0.12)
         fadeIn:SetOrder(1)
 
         local drift = ag:CreateAnimation("Translation")
         drift:SetOffset(math.random(-45, 45), math.random(36, 90))
-        drift:SetDuration(0.65 + math.random() * 0.45)
+        drift:SetDuration(1.0 + math.random() * 0.6)
         drift:SetOrder(1)
+
+        local hold = ag:CreateAnimation("Alpha")
+        hold:SetFromAlpha(0.95)
+        hold:SetToAlpha(0.95)
+        hold:SetDuration(0.24 + math.random() * 0.16)
+        hold:SetOrder(2)
 
         local fadeOut = ag:CreateAnimation("Alpha")
         fadeOut:SetFromAlpha(0.95)
         fadeOut:SetToAlpha(0)
-        fadeOut:SetDuration(0.6 + math.random() * 0.5)
-        fadeOut:SetOrder(2)
+        fadeOut:SetDuration(0.9 + math.random() * 0.6)
+        fadeOut:SetOrder(3)
 
         local shrink = ag:CreateAnimation("Scale")
         shrink:SetScale(0.6, 0.6)
         shrink:SetOrigin("CENTER", 0, 0)
-        shrink:SetDuration(0.8 + math.random() * 0.35)
-        shrink:SetOrder(2)
+        shrink:SetDuration(1.2 + math.random() * 0.5)
+        shrink:SetOrder(3)
 
         ag:SetScript("OnFinished", function()
             tex:Hide()
