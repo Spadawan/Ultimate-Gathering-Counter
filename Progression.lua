@@ -351,7 +351,7 @@ function Progression:FeedCreature(category)
     end
 
     creature.xp = (creature.xp or 0) + FEED_COST_XP
-    self:_AdvanceCreatureNonEvolutionLevels(category, creature)
+    local leveled = self:_AdvanceCreatureNonEvolutionLevels(category, creature)
 
     UGC.DB:SetCreatureProgress(category, creature)
 
@@ -365,6 +365,9 @@ function Progression:FeedCreature(category)
         if req > 0 and creature.xp >= req and nextPhase > currentPhase then
             return true, "ready"
         end
+    end
+    if leveled then
+        return true, "levelup"
     end
     return true, "xp"
 end

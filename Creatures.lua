@@ -11,6 +11,19 @@ local Creatures = UGC.Creatures
 local WINDOW_SIZE = 420
 local TAB_ORDER = { "herbs", "ore", "fish", "leather" }
 local ICON_PATH = "Interface\\AddOns\\UltimateGatheringCounter\\media\\monster"
+local LEVELUP_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\LevelUp.ogg"
+local FEED_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\iEating1.ogg"
+local LEVELUP_PARTICLES = {
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02.tga",
+}
+local FEED_LEAF_PARTICLES = {
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_01.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_02.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_03.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_04.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_05.tga",
+}
 
 local ART_BY_CATEGORY = {
     herbs = {
@@ -216,11 +229,21 @@ function Creatures:_PlayPopup(text, color)
 end
 
 function Creatures:_PlayLevelupSound()
-    if not PlaySound then return end
-    if SOUNDKIT and SOUNDKIT.UI_PLAYER_LEVEL_UP then
-        PlaySound(SOUNDKIT.UI_PLAYER_LEVEL_UP)
-    else
-        PlaySound("LEVELUP")
+    if PlaySoundFile and PlaySoundFile(LEVELUP_SOUND, "SFX") then
+        return
+    end
+    if PlaySound then
+        if SOUNDKIT and SOUNDKIT.UI_PLAYER_LEVEL_UP then
+            PlaySound(SOUNDKIT.UI_PLAYER_LEVEL_UP)
+        else
+            PlaySound("LEVELUP")
+        end
+    end
+end
+
+function Creatures:_PlayFeedSound()
+    if PlaySoundFile and PlaySoundFile(FEED_SOUND, "SFX") then
+        return
     end
 end
 
@@ -264,7 +287,7 @@ end
 function Creatures:_PlayLevelupShine(texturePath)
     if not self._levelupShineFx then return end
     self._levelupShineFx:SetTexture(texturePath or self._art:GetTexture())
-    self._levelupShineFx:SetVertexColor(1, 1, 1, 1)
+    self._levelupShineFx:SetVertexColor(1.0, 0.92, 0.35, 1)
     self._levelupShineFx:SetAlpha(0)
 
     if not self._levelupShineAnim then
@@ -290,6 +313,87 @@ function Creatures:_PlayLevelupShine(texturePath)
     self._levelupShineAnim:Play()
 end
 
+function Creatures:_SpawnLevelupParticles()
+    if not self.frame or not self._art then return end
+    for i = 1, 22 do
+        local tex = self.frame:CreateTexture(nil, "HIGHLIGHT")
+        tex:SetTexture(LEVELUP_PARTICLES[((i - 1) % #LEVELUP_PARTICLES) + 1])
+        tex:SetBlendMode("ADD")
+        local size = math.random(14, 30)
+        tex:SetSize(size, size)
+        tex:SetPoint("CENTER", self._art, "CENTER", math.random(-40, 40), math.random(-28, 28))
+        tex:SetAlpha(0)
+
+        local ag = tex:CreateAnimationGroup()
+        local fadeIn = ag:CreateAnimation("Alpha")
+        fadeIn:SetFromAlpha(0)
+        fadeIn:SetToAlpha(0.95)
+        fadeIn:SetDuration(0.12 + math.random() * 0.1)
+        fadeIn:SetOrder(1)
+
+        local drift = ag:CreateAnimation("Translation")
+        drift:SetOffset(math.random(-45, 45), math.random(36, 90))
+        drift:SetDuration(0.65 + math.random() * 0.45)
+        drift:SetOrder(1)
+
+        local fadeOut = ag:CreateAnimation("Alpha")
+        fadeOut:SetFromAlpha(0.95)
+        fadeOut:SetToAlpha(0)
+        fadeOut:SetDuration(0.6 + math.random() * 0.5)
+        fadeOut:SetOrder(2)
+
+        local shrink = ag:CreateAnimation("Scale")
+        shrink:SetScale(0.6, 0.6)
+        shrink:SetOrigin("CENTER", 0, 0)
+        shrink:SetDuration(0.8 + math.random() * 0.35)
+        shrink:SetOrder(2)
+
+        ag:SetScript("OnFinished", function()
+            tex:Hide()
+            tex:SetTexture(nil)
+        end)
+        ag:Play()
+    end
+end
+
+function Creatures:_SpawnFeedLeafParticles()
+    if not self.frame or not self._art then return end
+    for i = 1, 16 do
+        local tex = self.frame:CreateTexture(nil, "OVERLAY")
+        tex:SetTexture(FEED_LEAF_PARTICLES[math.random(1, #FEED_LEAF_PARTICLES)])
+        tex:SetBlendMode("BLEND")
+        local size = math.random(16, 26)
+        tex:SetSize(size, size)
+        tex:SetRotation(math.rad(math.random(0, 359)))
+        tex:SetPoint("CENTER", self._art, "CENTER", math.random(-24, 24), math.random(-30, 12))
+        tex:SetAlpha(0)
+
+        local ag = tex:CreateAnimationGroup()
+        local fadeIn = ag:CreateAnimation("Alpha")
+        fadeIn:SetFromAlpha(0)
+        fadeIn:SetToAlpha(0.9)
+        fadeIn:SetDuration(0.1 + math.random() * 0.1)
+        fadeIn:SetOrder(1)
+
+        local drift = ag:CreateAnimation("Translation")
+        drift:SetOffset(math.random(-45, 45), math.random(24, 78))
+        drift:SetDuration(0.55 + math.random() * 0.35)
+        drift:SetOrder(1)
+
+        local fadeOut = ag:CreateAnimation("Alpha")
+        fadeOut:SetFromAlpha(0.9)
+        fadeOut:SetToAlpha(0)
+        fadeOut:SetDuration(0.5 + math.random() * 0.45)
+        fadeOut:SetOrder(2)
+
+        ag:SetScript("OnFinished", function()
+            tex:Hide()
+            tex:SetTexture(nil)
+        end)
+        ag:Play()
+    end
+end
+
 function Creatures:_Feed()
     local cat = self._activeCategory
     if not cat then return end
@@ -308,10 +412,17 @@ function Creatures:_Feed()
 
     if result == "ready" then
         self:_PlayPopup("Ready to evolve!", { 1.0, 0.9, 0.3 })
+    elseif result == "levelup" then
+        self:_PlayPopup("Level up!", { 0.4, 1.0, 0.3 })
+        self:_PlayLevelupShine(self._art:GetTexture())
+        self:_SpawnLevelupParticles()
+        self:_PlayLevelupSound()
     else
         self:_PlayPopup("+100 EXP", { 0.4, 1.0, 0.3 })
     end
+    self:_PlayFeedSound()
     self:_PlayFeedReaction()
+    self:_SpawnFeedLeafParticles()
 
     self:Refresh()
     if UGC.Overlay then UGC.Overlay:Refresh() end
@@ -399,6 +510,7 @@ function Creatures:_Evolve()
     self:Refresh()
     self:_PlayEvolutionAnimation(oldTexture, newTexture)
     self:_PlayLevelupShine(newTexture)
+    self:_SpawnLevelupParticles()
     self:_PlayLevelupSound()
     self:_PlayPopup("Level up!", { 0.4, 1.0, 0.3 })
 
