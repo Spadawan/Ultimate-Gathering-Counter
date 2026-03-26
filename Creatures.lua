@@ -14,15 +14,25 @@ local ICON_PATH = "Interface\\AddOns\\UltimateGatheringCounter\\media\\monster"
 local LEVELUP_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\LevelUp.ogg"
 local FEED_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\iEating1.ogg"
 local LEVELUP_PARTICLES = {
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02.tga",
 }
-local FEED_LEAF_PARTICLES = {
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_01.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_02.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_03.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_04.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_05.tga",
+local FEED_PARTICLES_BY_CATEGORY = {
+    herbs = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_05.tga",
+    },
+    ore = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_05.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_06.tga",
+    },
 }
 
 local ART_BY_CATEGORY = {
@@ -33,6 +43,13 @@ local ART_BY_CATEGORY = {
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_04",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_05",
     },
+    ore = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_05.tga",
+    },
 }
 
 local CUTE_NAMES = {
@@ -42,7 +59,8 @@ local CUTE_NAMES = {
     leather = "Snugglehide",
 }
 
-local POPUP_DURATION = 2.0
+local POPUP_HOLD_DURATION = 0.45
+local POPUP_FADE_DURATION = 1.55
 local ART_SIZE_SMALL = 168
 
 local function getPhaseForLevel(level)
@@ -133,23 +151,30 @@ function Creatures:Init()
     local expText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     expText:SetPoint("CENTER", expBg, "CENTER", 0, 0)
 
-    local popup = f:CreateFontString(nil, "HIGHLIGHT", "GameFontNormalLarge")
+    local popup = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     popup:SetPoint("CENTER", art, "CENTER", 0, 12)
+    popup:SetDrawLayer("OVERLAY", 7)
     popup:SetTextColor(0.4, 1.0, 0.4)
     popup:SetAlpha(0)
     local popupAnim
     if popup.CreateAnimationGroup then
         popupAnim = popup:CreateAnimationGroup()
+        local hold = popupAnim:CreateAnimation("Alpha")
+        hold:SetFromAlpha(1)
+        hold:SetToAlpha(1)
+        hold:SetDuration(POPUP_HOLD_DURATION)
+        hold:SetOrder(1)
+
         local fade = popupAnim:CreateAnimation("Alpha")
         fade:SetFromAlpha(1)
         fade:SetToAlpha(0)
-        fade:SetDuration(POPUP_DURATION)
-        fade:SetOrder(1)
+        fade:SetDuration(POPUP_FADE_DURATION)
+        fade:SetOrder(2)
 
         local drift = popupAnim:CreateAnimation("Translation")
         drift:SetOffset(0, 20)
-        drift:SetDuration(POPUP_DURATION)
-        drift:SetOrder(1)
+        drift:SetDuration(POPUP_HOLD_DURATION + POPUP_FADE_DURATION)
+        drift:SetOrder(2)
 
         popupAnim:SetScript("OnFinished", function()
             popup:SetAlpha(0)
@@ -316,7 +341,8 @@ end
 function Creatures:_SpawnLevelupParticles()
     if not self.frame or not self._art then return end
     for i = 1, 22 do
-        local tex = self.frame:CreateTexture(nil, "HIGHLIGHT")
+        local tex = self.frame:CreateTexture(nil, "OVERLAY")
+        tex:SetDrawLayer("OVERLAY", 6)
         tex:SetTexture(LEVELUP_PARTICLES[((i - 1) % #LEVELUP_PARTICLES) + 1])
         tex:SetBlendMode("ADD")
         local size = math.random(14, 30)
@@ -328,25 +354,31 @@ function Creatures:_SpawnLevelupParticles()
         local fadeIn = ag:CreateAnimation("Alpha")
         fadeIn:SetFromAlpha(0)
         fadeIn:SetToAlpha(0.95)
-        fadeIn:SetDuration(0.12 + math.random() * 0.1)
+        fadeIn:SetDuration(0.2 + math.random() * 0.12)
         fadeIn:SetOrder(1)
 
         local drift = ag:CreateAnimation("Translation")
         drift:SetOffset(math.random(-45, 45), math.random(36, 90))
-        drift:SetDuration(0.65 + math.random() * 0.45)
+        drift:SetDuration(1.0 + math.random() * 0.6)
         drift:SetOrder(1)
+
+        local hold = ag:CreateAnimation("Alpha")
+        hold:SetFromAlpha(0.95)
+        hold:SetToAlpha(0.95)
+        hold:SetDuration(0.24 + math.random() * 0.16)
+        hold:SetOrder(2)
 
         local fadeOut = ag:CreateAnimation("Alpha")
         fadeOut:SetFromAlpha(0.95)
         fadeOut:SetToAlpha(0)
-        fadeOut:SetDuration(0.6 + math.random() * 0.5)
-        fadeOut:SetOrder(2)
+        fadeOut:SetDuration(0.9 + math.random() * 0.6)
+        fadeOut:SetOrder(3)
 
         local shrink = ag:CreateAnimation("Scale")
         shrink:SetScale(0.6, 0.6)
         shrink:SetOrigin("CENTER", 0, 0)
-        shrink:SetDuration(0.8 + math.random() * 0.35)
-        shrink:SetOrder(2)
+        shrink:SetDuration(1.2 + math.random() * 0.5)
+        shrink:SetOrder(3)
 
         ag:SetScript("OnFinished", function()
             tex:Hide()
@@ -358,9 +390,11 @@ end
 
 function Creatures:_SpawnFeedLeafParticles()
     if not self.frame or not self._art then return end
+    local category = self._activeCategory or "herbs"
+    local feedParticles = FEED_PARTICLES_BY_CATEGORY[category] or FEED_PARTICLES_BY_CATEGORY.herbs
     for i = 1, 30 do
         local tex = self.frame:CreateTexture(nil, "OVERLAY")
-        tex:SetTexture(FEED_LEAF_PARTICLES[math.random(1, #FEED_LEAF_PARTICLES)])
+        tex:SetTexture(feedParticles[math.random(1, #feedParticles)])
         tex:SetBlendMode("BLEND")
         local size = math.random(9, 15)
         tex:SetSize(size, size)
