@@ -37,6 +37,10 @@ local FEED_PARTICLES_BY_CATEGORY = {
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\Misc_Skinning_01.tga",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\Misc_Skinning_02.tga",
     },
+    fish = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\Misc_Skinning_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\Misc_Skinning_02.tga",
+    },
 }
 
 local ART_BY_CATEGORY = {
@@ -53,6 +57,13 @@ local ART_BY_CATEGORY = {
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_03.tga",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_04.tga",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_05.tga",
+    },
+    fish = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\fish\\fish_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\fish\\fish_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\fish\\fish_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\fish\\fish_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\fish\\fish_05.tga",
     },
     leather = {
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\skin_01.tga",

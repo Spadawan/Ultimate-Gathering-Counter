@@ -255,6 +255,13 @@ end
 
 function Progression:GetCreatureProgress(category)
     local st = UGC.DB:GetCreatureProgress(category)
+    if category == "fish" and not st.unlocked then
+        st.unlocked = true
+        st.level = st.level or 1
+        st.maxLevelReached = math.max(st.maxLevelReached or 1, st.level or 1)
+        st.name = st.name or CREATURE_DEFAULT_NAMES[category] or "Gatherling"
+        UGC.DB:SetCreatureProgress(category, st)
+    end
     if self:_AdvanceCreatureNonEvolutionLevels(category, st) then
         UGC.DB:SetCreatureProgress(category, st)
     end
