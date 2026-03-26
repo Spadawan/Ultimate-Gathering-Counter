@@ -312,17 +312,47 @@ function Progression:FeedCreature(category)
     end
 
     creature.xp = (creature.xp or 0) + FEED_COST_XP
-    local leveled = false
-    while creature.level < CREATURE_MAX_LEVEL do
-        local req = self:GetCreatureXPRequirement(creature.level)
-        if creature.xp < req then
-            break
-        end
-        creature.xp = creature.xp - req
-        creature.level = creature.level + 1
-        creature.maxLevelReached = math.max(creature.maxLevelReached or creature.level, creature.level)
-        leveled = true
+
+    UGC.DB:SetCreatureProgress(category, creature)
+
+    if UGC.Community then
+        UGC.Community:BroadcastSnapshot(true)
     end
+    if creature.level < CREATURE_MAX_LEVEL then
+        local req = self:GetCreatureXPRequirement(creature.level)
+        if req > 0 and creature.xp >= req then
+            return true, "ready"
+        end
+    end
+    return true, "xp"
+end
+
+function Progression:CanEvolveCreature(category)
+    local creature = UGC.DB:GetCreatureProgress(category)
+    if not creature.unlocked or creature.level >= CREATURE_MAX_LEVEL then
+        return false
+    end
+    local req = self:GetCreatureXPRequirement(creature.level)
+    return req > 0 and (creature.xp or 0) >= req
+end
+
+function Progression:EvolveCreature(category)
+    local creature = UGC.DB:GetCreatureProgress(category)
+    if not creature.unlocked then
+        return false, "locked"
+    end
+    if creature.level >= CREATURE_MAX_LEVEL then
+        return false, "max"
+    end
+
+    local req = self:GetCreatureXPRequirement(creature.level)
+    if req <= 0 or (creature.xp or 0) < req then
+        return false, "xp"
+    end
+
+    creature.xp = creature.xp - req
+    creature.level = creature.level + 1
+    creature.maxLevelReached = math.max(creature.maxLevelReached or creature.level, creature.level)
 
     if creature.level >= CREATURE_MAX_LEVEL then
         creature.level = CREATURE_MAX_LEVEL
@@ -330,11 +360,10 @@ function Progression:FeedCreature(category)
     end
 
     UGC.DB:SetCreatureProgress(category, creature)
-
     if UGC.Community then
         UGC.Community:BroadcastSnapshot(true)
     end
-    return true, (leveled and "levelup" or "xp")
+    return true, "levelup"
 end
 
 function Progression:GetRecentGain(category)

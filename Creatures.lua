@@ -11,7 +11,6 @@ local Creatures = UGC.Creatures
 local WINDOW_SIZE = 420
 local TAB_ORDER = { "herbs", "ore", "fish", "leather" }
 local ICON_PATH = "Interface\\AddOns\\UltimateGatheringCounter\\media\\monster"
-local BUBBLE_TEXTURE = "Interface\\AddOns\\UltimateGatheringCounter\\media\\bubble"
 
 local ART_BY_CATEGORY = {
     herbs = {
@@ -29,6 +28,8 @@ local CUTE_NAMES = {
     fish = "Blooplet",
     leather = "Snugglehide",
 }
+
+local POPUP_DURATION = 2.0
 
 local function getPhaseForLevel(level)
     if level <= 5 then return 1 end
@@ -128,12 +129,12 @@ function Creatures:Init()
         local fade = popupAnim:CreateAnimation("Alpha")
         fade:SetFromAlpha(1)
         fade:SetToAlpha(0)
-        fade:SetDuration(1.2)
+        fade:SetDuration(POPUP_DURATION)
         fade:SetOrder(1)
 
         local drift = popupAnim:CreateAnimation("Translation")
-        drift:SetOffset(0, 24)
-        drift:SetDuration(1.2)
+        drift:SetOffset(0, 20)
+        drift:SetDuration(POPUP_DURATION)
         drift:SetOrder(1)
 
         popupAnim:SetScript("OnFinished", function()
@@ -147,9 +148,27 @@ function Creatures:Init()
     feedBtn:SetSize(170, 24)
     feedBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 14)
     feedBtn:SetText("Feed with your EXP")
-    feedBtn:SetScript("OnClick", function(btn)
-        Creatures:_Feed(btn)
+    feedBtn:SetScript("OnClick", function()
+        Creatures:_Feed()
     end)
+
+    local evolveBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    evolveBtn:SetSize(170, 24)
+    evolveBtn:SetPoint("BOTTOM", feedBtn, "TOP", 0, 6)
+    evolveBtn:SetText("Evolve creature")
+    evolveBtn:SetScript("OnClick", function()
+        Creatures:_Evolve()
+    end)
+
+    local evolveOldFx = f:CreateTexture(nil, "HIGHLIGHT")
+    evolveOldFx:SetAllPoints(art)
+    evolveOldFx:SetBlendMode("ADD")
+    evolveOldFx:SetAlpha(0)
+
+    local evolveNewFx = f:CreateTexture(nil, "HIGHLIGHT")
+    evolveNewFx:SetAllPoints(art)
+    evolveNewFx:SetBlendMode("ADD")
+    evolveNewFx:SetAlpha(0)
 
     self.frame = f
     self._art = art
@@ -161,6 +180,9 @@ function Creatures:Init()
     self._popup = popup
     self._popupAnim = popupAnim
     self._feedBtn = feedBtn
+    self._evolveBtn = evolveBtn
+    self._evolveOldFx = evolveOldFx
+    self._evolveNewFx = evolveNewFx
     self._activeCategory = "herbs"
     self:_SetCategory("herbs")
 
@@ -186,70 +208,7 @@ function Creatures:_PlayPopup(text, color)
     end
 end
 
-function Creatures:_SpawnBubbleFeedAnimation(sourceBtn)
-    if not self.frame or not self._art or not sourceBtn then return end
-
-    local function toUIParentCoords(frame)
-        local x, y = frame:GetCenter()
-        if not (x and y) then return nil, nil end
-        local frameScale = frame:GetEffectiveScale() or 1
-        local parentScale = UIParent:GetEffectiveScale() or 1
-        return (x * frameScale) / parentScale, (y * frameScale) / parentScale
-    end
-
-    local sx, sy = toUIParentCoords(sourceBtn)
-    local dx, dy = toUIParentCoords(self._art)
-    if not (sx and sy and dx and dy) then return end
-
-    for i = 1, 14 do
-        local b = CreateFrame("Frame", nil, UIParent)
-        b:SetFrameStrata("HIGH")
-        local size = 12 + math.random(0, 10)
-        b:SetSize(size, size)
-        local tex = b:CreateTexture(nil, "ARTWORK")
-        tex:SetAllPoints()
-        tex:SetTexture(BUBBLE_TEXTURE)
-        tex:SetBlendMode("BLEND")
-        b.tex = tex
-
-        local startX = sx + math.random(-12, 12)
-        local startY = sy + math.random(-8, 8)
-        local c1x = startX + math.random(-70, 70)
-        local c1y = startY + 60 + math.random(0, 50)
-        local c2x = dx + math.random(-70, 70)
-        local c2y = dy + 40 + math.random(0, 70)
-        local duration = 0.8 + math.random() * 0.3
-        local t0 = GetTime() + (i * 0.01)
-
-        b:SetPoint("CENTER", UIParent, "BOTTOMLEFT", startX, startY)
-        b:SetAlpha(0.9)
-
-        b:SetScript("OnUpdate", function(self)
-            local t = (GetTime() - t0) / duration
-            if t <= 0 then return end
-
-            if t >= 1 then
-                self:SetScript("OnUpdate", nil)
-                self:Hide()
-                self:SetParent(nil)
-                return
-            end
-
-            local u = 1 - t
-            local uu = u * u
-            local tt = t * t
-            local ax = uu * u * startX + 3 * uu * t * c1x + 3 * u * tt * c2x + tt * t * dx
-            local ay = uu * u * startY + 3 * uu * t * c1y + 3 * u * tt * c2y + tt * t * dy
-
-            self:ClearAllPoints()
-            self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", ax, ay)
-            self:SetAlpha(1 - t * 0.9)
-            self:SetScale(1 - t * 0.45)
-        end)
-    end
-end
-
-function Creatures:_Feed(btn)
+function Creatures:_Feed()
     local cat = self._activeCategory
     if not cat then return end
 
@@ -265,14 +224,97 @@ function Creatures:_Feed(btn)
         return
     end
 
-    self:_SpawnBubbleFeedAnimation(btn)
-    if result == "levelup" then
-        self:_PlayPopup("Level up!", { 0.4, 1.0, 0.3 })
+    if result == "ready" then
+        self:_PlayPopup("Ready to evolve!", { 1.0, 0.9, 0.3 })
     else
         self:_PlayPopup("+100 EXP", { 0.4, 1.0, 0.3 })
     end
 
     self:Refresh()
+    if UGC.Overlay then UGC.Overlay:Refresh() end
+    if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
+        UGC.Details:Refresh()
+    end
+end
+
+function Creatures:_PlayEvolutionAnimation(oldTexture, newTexture)
+    if not (self._evolveOldFx and self._evolveNewFx and oldTexture and newTexture) then return end
+
+    local oldFx = self._evolveOldFx
+    local newFx = self._evolveNewFx
+
+    oldFx:SetTexture(oldTexture)
+    oldFx:SetVertexColor(1, 1, 1, 1)
+    oldFx:SetAlpha(0.95)
+
+    newFx:SetTexture(newTexture)
+    newFx:SetVertexColor(1, 1, 1, 1)
+    newFx:SetAlpha(0)
+
+    if not self._evolveOldAnim then
+        self._evolveOldAnim = oldFx:CreateAnimationGroup()
+        local oldFade = self._evolveOldAnim:CreateAnimation("Alpha")
+        oldFade:SetFromAlpha(0.95)
+        oldFade:SetToAlpha(0)
+        oldFade:SetDuration(0.65)
+        oldFade:SetOrder(1)
+        self._evolveOldAnim:SetScript("OnFinished", function()
+            oldFx:SetAlpha(0)
+        end)
+    end
+
+    if not self._evolveNewAnim then
+        self._evolveNewAnim = newFx:CreateAnimationGroup()
+        local newIn = self._evolveNewAnim:CreateAnimation("Alpha")
+        newIn:SetFromAlpha(0)
+        newIn:SetToAlpha(1)
+        newIn:SetDuration(0.2)
+        newIn:SetOrder(1)
+        local newOut = self._evolveNewAnim:CreateAnimation("Alpha")
+        newOut:SetFromAlpha(1)
+        newOut:SetToAlpha(0)
+        newOut:SetDuration(1.1)
+        newOut:SetOrder(2)
+        self._evolveNewAnim:SetScript("OnFinished", function()
+            newFx:SetAlpha(0)
+        end)
+    end
+
+    self._evolveOldAnim:Stop()
+    self._evolveNewAnim:Stop()
+    self._evolveOldAnim:Play()
+    self._evolveNewAnim:Play()
+end
+
+function Creatures:_Evolve()
+    local cat = self._activeCategory
+    if not cat then return end
+
+    local before = UGC.Progression:GetCreatureProgress(cat)
+    local artList = ART_BY_CATEGORY[cat]
+    local oldPhase = getPhaseForLevel(before.level)
+    local oldTexture = (artList and artList[oldPhase]) or "Interface\\Icons\\INV_Misc_QuestionMark"
+
+    local ok, result = UGC.Progression:EvolveCreature(cat)
+    if not ok then
+        if result == "xp" then
+            self:_PlayPopup("Not enough creature EXP", { 1, 0.2, 0.2 })
+        elseif result == "max" then
+            self:_PlayPopup("Max creature level", { 1, 0.9, 0.2 })
+        else
+            self:_PlayPopup("Creature locked", { 1, 0.2, 0.2 })
+        end
+        return
+    end
+
+    local after = UGC.Progression:GetCreatureProgress(cat)
+    local newPhase = getPhaseForLevel(after.level)
+    local newTexture = (artList and artList[newPhase]) or "Interface\\Icons\\INV_Misc_QuestionMark"
+
+    self:Refresh()
+    self:_PlayEvolutionAnimation(oldTexture, newTexture)
+    self:_PlayPopup("Level up!", { 0.4, 1.0, 0.3 })
+
     if UGC.Overlay then UGC.Overlay:Refresh() end
     if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
         UGC.Details:Refresh()
@@ -364,6 +406,7 @@ function Creatures:Refresh()
         self._expFill:SetWidth(1)
         self._expText:SetText("")
         self._feedBtn:Disable()
+        self._evolveBtn:Hide()
         return
     end
 
@@ -382,6 +425,13 @@ function Creatures:Refresh()
     self._expText:SetText(string.format("%d / %d EXP", cp.xp, cp.reqXP))
 
     self._feedBtn:SetEnabled(cp.level < cp.maxLevel)
+    local canEvolve = UGC.Progression:CanEvolveCreature(active)
+    if canEvolve then
+        self._evolveBtn:Show()
+        self._evolveBtn:Enable()
+    else
+        self._evolveBtn:Hide()
+    end
 end
 
 function Creatures:Toggle()
