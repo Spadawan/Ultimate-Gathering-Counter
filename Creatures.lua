@@ -30,6 +30,8 @@ local CUTE_NAMES = {
 }
 
 local POPUP_DURATION = 2.0
+local ART_SIZE_SMALL = 168
+local ART_SIZE_LARGE = 336
 
 local function getPhaseForLevel(level)
     if level <= 5 then return 1 end
@@ -96,7 +98,7 @@ function Creatures:Init()
     end
 
     local art = f:CreateTexture(nil, "ARTWORK")
-    art:SetSize(168, 168)
+    art:SetSize(ART_SIZE_SMALL, ART_SIZE_SMALL)
     art:SetPoint("TOP", f, "TOP", 0, -111)
     art:SetTexCoord(0.01, 0.99, 0.01, 0.99)
 
@@ -170,6 +172,11 @@ function Creatures:Init()
     evolveNewFx:SetBlendMode("ADD")
     evolveNewFx:SetAlpha(0)
 
+    local levelupShineFx = f:CreateTexture(nil, "HIGHLIGHT")
+    levelupShineFx:SetAllPoints(art)
+    levelupShineFx:SetBlendMode("ADD")
+    levelupShineFx:SetAlpha(0)
+
     self.frame = f
     self._art = art
     self._name = creatureName
@@ -183,6 +190,7 @@ function Creatures:Init()
     self._evolveBtn = evolveBtn
     self._evolveOldFx = evolveOldFx
     self._evolveNewFx = evolveNewFx
+    self._levelupShineFx = levelupShineFx
     self._activeCategory = "herbs"
     self:_SetCategory("herbs")
 
@@ -208,6 +216,81 @@ function Creatures:_PlayPopup(text, color)
     end
 end
 
+function Creatures:_PlayLevelupSound()
+    if not PlaySound then return end
+    if SOUNDKIT and SOUNDKIT.UI_PLAYER_LEVEL_UP then
+        PlaySound(SOUNDKIT.UI_PLAYER_LEVEL_UP)
+    else
+        PlaySound("LEVELUP")
+    end
+end
+
+function Creatures:_PlayFeedReaction()
+    if not self._art then return end
+    if not self._feedReactAnim then
+        self._feedReactAnim = self._art:CreateAnimationGroup()
+
+        local scaleUp = self._feedReactAnim:CreateAnimation("Scale")
+        scaleUp:SetScale(1.05, 1.05)
+        scaleUp:SetOrigin("CENTER", 0, 0)
+        scaleUp:SetDuration(0.12)
+        scaleUp:SetOrder(1)
+
+        local jiggleRight = self._feedReactAnim:CreateAnimation("Translation")
+        jiggleRight:SetOffset(2, 0)
+        jiggleRight:SetDuration(0.05)
+        jiggleRight:SetOrder(1)
+
+        local jiggleLeft = self._feedReactAnim:CreateAnimation("Translation")
+        jiggleLeft:SetOffset(-4, 0)
+        jiggleLeft:SetDuration(0.08)
+        jiggleLeft:SetOrder(2)
+
+        local jiggleCenter = self._feedReactAnim:CreateAnimation("Translation")
+        jiggleCenter:SetOffset(2, 0)
+        jiggleCenter:SetDuration(0.05)
+        jiggleCenter:SetOrder(3)
+
+        local scaleDown = self._feedReactAnim:CreateAnimation("Scale")
+        scaleDown:SetScale(1 / 1.05, 1 / 1.05)
+        scaleDown:SetOrigin("CENTER", 0, 0)
+        scaleDown:SetDuration(0.18)
+        scaleDown:SetOrder(2)
+    end
+
+    self._feedReactAnim:Stop()
+    self._feedReactAnim:Play()
+end
+
+function Creatures:_PlayLevelupShine(texturePath)
+    if not self._levelupShineFx then return end
+    self._levelupShineFx:SetTexture(texturePath or self._art:GetTexture())
+    self._levelupShineFx:SetVertexColor(1, 1, 1, 1)
+    self._levelupShineFx:SetAlpha(0)
+
+    if not self._levelupShineAnim then
+        self._levelupShineAnim = self._levelupShineFx:CreateAnimationGroup()
+        local fadeIn = self._levelupShineAnim:CreateAnimation("Alpha")
+        fadeIn:SetFromAlpha(0)
+        fadeIn:SetToAlpha(1)
+        fadeIn:SetDuration(0.15)
+        fadeIn:SetOrder(1)
+        local fadeOut = self._levelupShineAnim:CreateAnimation("Alpha")
+        fadeOut:SetFromAlpha(1)
+        fadeOut:SetToAlpha(0)
+        fadeOut:SetDuration(1.0)
+        fadeOut:SetOrder(2)
+        self._levelupShineAnim:SetScript("OnFinished", function()
+            if Creatures._levelupShineFx then
+                Creatures._levelupShineFx:SetAlpha(0)
+            end
+        end)
+    end
+
+    self._levelupShineAnim:Stop()
+    self._levelupShineAnim:Play()
+end
+
 function Creatures:_Feed()
     local cat = self._activeCategory
     if not cat then return end
@@ -229,6 +312,7 @@ function Creatures:_Feed()
     else
         self:_PlayPopup("+100 EXP", { 0.4, 1.0, 0.3 })
     end
+    self:_PlayFeedReaction()
 
     self:Refresh()
     if UGC.Overlay then UGC.Overlay:Refresh() end
@@ -313,6 +397,8 @@ function Creatures:_Evolve()
 
     self:Refresh()
     self:_PlayEvolutionAnimation(oldTexture, newTexture)
+    self:_PlayLevelupShine(newTexture)
+    self:_PlayLevelupSound()
     self:_PlayPopup("Level up!", { 0.4, 1.0, 0.3 })
 
     if UGC.Overlay then UGC.Overlay:Refresh() end
@@ -400,6 +486,7 @@ function Creatures:Refresh()
     local artList = ART_BY_CATEGORY[active]
 
     if not cp.unlocked then
+        self._art:SetSize(ART_SIZE_SMALL, ART_SIZE_SMALL)
         self._art:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
         self._name:SetText("Locked - reach level 5 in this profession")
         self._levelText:SetText("")
@@ -411,6 +498,11 @@ function Creatures:Refresh()
     end
 
     local phase = getPhaseForLevel(cp.level)
+    if phase >= 3 then
+        self._art:SetSize(ART_SIZE_LARGE, ART_SIZE_LARGE)
+    else
+        self._art:SetSize(ART_SIZE_SMALL, ART_SIZE_SMALL)
+    end
     local texturePath = (artList and artList[phase]) or "Interface\\Icons\\INV_Misc_QuestionMark"
     self._art:SetTexture(texturePath)
 
