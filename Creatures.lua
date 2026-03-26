@@ -14,8 +14,8 @@ local ICON_PATH = "Interface\\AddOns\\UltimateGatheringCounter\\media\\monster"
 local LEVELUP_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\LevelUp.ogg"
 local FEED_SOUND = "Interface\\AddOns\\UltimateGatheringCounter\\media\\iEating1.ogg"
 local LEVELUP_PARTICLES = {
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02.tga",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01",
+    "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02",
 }
 local FEED_LEAF_PARTICLES = {
     "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_01.tga",
