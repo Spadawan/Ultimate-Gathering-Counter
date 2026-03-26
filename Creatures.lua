@@ -33,6 +33,10 @@ local FEED_PARTICLES_BY_CATEGORY = {
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_05.tga",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_06.tga",
     },
+    leather = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\Misc_Skinning_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\Misc_Skinning_02.tga",
+    },
 }
 
 local ART_BY_CATEGORY = {
@@ -49,6 +53,13 @@ local ART_BY_CATEGORY = {
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_03.tga",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_04.tga",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_05.tga",
+    },
+    leather = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\skin_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\skin_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\skin_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\skin_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\skin\\skin_05.tga",
     },
 }
 
@@ -102,6 +113,12 @@ function Creatures:Init()
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", function(self) self:StartMoving() end)
     f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+
+    local bgTexture = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+    bgTexture:SetAllPoints()
+    bgTexture:SetTexture("Interface\\AddOns\\UltimateGatheringCounter\\media\\background.tga")
+    bgTexture:SetTexCoord(0, 1, 0, 1)
+    bgTexture:SetVertexColor(1, 1, 1, 0.88)
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", f, "TOP", 0, -14)
