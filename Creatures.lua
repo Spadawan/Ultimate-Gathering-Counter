@@ -187,7 +187,6 @@ function Creatures:Init()
     local levelupShineFx = f:CreateTexture(nil, "OVERLAY")
     levelupShineFx:SetAllPoints(art)
     levelupShineFx:SetBlendMode("ADD")
-    levelupShineFx:SetColorTexture(1.0, 0.92, 0.25, 1)
     levelupShineFx:SetAlpha(0)
 
     self.frame = f
@@ -287,7 +286,8 @@ end
 
 function Creatures:_PlayLevelupShine()
     if not self._levelupShineFx then return end
-    self._levelupShineFx:SetColorTexture(1.0, 0.92, 0.25, 1)
+    self._levelupShineFx:SetTexture(self._art:GetTexture())
+    self._levelupShineFx:SetVertexColor(1.0, 0.92, 0.25, 1)
     self._levelupShineFx:SetAlpha(0)
 
     if not self._levelupShineAnim then
