@@ -402,6 +402,10 @@ end
 function Creatures:_Feed()
     local cat = self._activeCategory
     if not cat then return end
+    if UGC.Progression:CanEvolveCreature(cat) then
+        self:_PlayPopup("Evolve creature first", { 1.0, 0.9, 0.2 })
+        return
+    end
 
     local ok, result = UGC.Progression:FeedCreature(cat)
     if not ok then
@@ -630,8 +634,8 @@ function Creatures:Refresh()
     self._expFill:SetWidth(math.max(1, w * pct))
     self._expText:SetText(string.format("%d / %d EXP", cp.xp, cp.reqXP))
 
-    self._feedBtn:SetEnabled(cp.level < cp.maxLevel)
     local canEvolve = UGC.Progression:CanEvolveCreature(active)
+    self._feedBtn:SetEnabled(cp.level < cp.maxLevel and not canEvolve)
     if canEvolve then
         self._evolveBtn:Show()
         self._evolveBtn:Enable()
