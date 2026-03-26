@@ -31,7 +31,6 @@ local CUTE_NAMES = {
 
 local POPUP_DURATION = 2.0
 local ART_SIZE_SMALL = 168
-local ART_SIZE_LARGE = 336
 
 local function getPhaseForLevel(level)
     if level <= 5 then return 1 end
@@ -385,6 +384,8 @@ function Creatures:_Evolve()
             self:_PlayPopup("Not enough creature EXP", { 1, 0.2, 0.2 })
         elseif result == "max" then
             self:_PlayPopup("Max creature level", { 1, 0.9, 0.2 })
+        elseif result == "phase" then
+            self:_PlayPopup("Evolution not available at this level", { 1, 0.9, 0.2 })
         else
             self:_PlayPopup("Creature locked", { 1, 0.2, 0.2 })
         end
@@ -498,11 +499,7 @@ function Creatures:Refresh()
     end
 
     local phase = getPhaseForLevel(cp.level)
-    if phase >= 3 then
-        self._art:SetSize(ART_SIZE_LARGE, ART_SIZE_LARGE)
-    else
-        self._art:SetSize(ART_SIZE_SMALL, ART_SIZE_SMALL)
-    end
+    self._art:SetSize(ART_SIZE_SMALL, ART_SIZE_SMALL)
     local texturePath = (artList and artList[phase]) or "Interface\\Icons\\INV_Misc_QuestionMark"
     self._art:SetTexture(texturePath)
 

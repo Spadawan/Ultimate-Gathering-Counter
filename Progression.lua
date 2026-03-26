@@ -95,6 +95,13 @@ local CREATURE_DEFAULT_NAMES = {
     leather = "Snugglehide",
 }
 
+local function getCreaturePhaseForLevel(level)
+    if level <= 5 then return 1 end
+    if level <= 15 then return 2 end
+    if level <= 25 then return 3 end
+    if level <= 40 then return 4 end
+    return 5
+end
 
 Progression._recentGain = {}
 Progression._chainState = {}
@@ -212,8 +219,40 @@ function Progression:GetCreatureXPRequirement(category, level)
     return self:GetXPRequirement(category, level)
 end
 
+function Progression:_AdvanceCreatureNonEvolutionLevels(category, creature)
+    local changed = false
+    while creature.level < CREATURE_MAX_LEVEL do
+        local req = self:GetCreatureXPRequirement(category, creature.level)
+        if req <= 0 or (creature.xp or 0) < req then
+            break
+        end
+
+        local currentPhase = getCreaturePhaseForLevel(creature.level)
+        local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+        if nextPhase > currentPhase then
+            break
+        end
+
+        creature.xp = creature.xp - req
+        creature.level = creature.level + 1
+        creature.maxLevelReached = math.max(creature.maxLevelReached or creature.level, creature.level)
+        changed = true
+    end
+
+    if creature.level >= CREATURE_MAX_LEVEL then
+        creature.level = CREATURE_MAX_LEVEL
+        creature.xp = 0
+        changed = true
+    end
+
+    return changed
+end
+
 function Progression:GetCreatureProgress(category)
     local st = UGC.DB:GetCreatureProgress(category)
+    if self:_AdvanceCreatureNonEvolutionLevels(category, st) then
+        UGC.DB:SetCreatureProgress(category, st)
+    end
     local reqXP = self:GetCreatureXPRequirement(category, st.level)
     return {
         unlocked = st.unlocked == true,
@@ -312,6 +351,7 @@ function Progression:FeedCreature(category)
     end
 
     creature.xp = (creature.xp or 0) + FEED_COST_XP
+    self:_AdvanceCreatureNonEvolutionLevels(category, creature)
 
     UGC.DB:SetCreatureProgress(category, creature)
 
@@ -320,7 +360,9 @@ function Progression:FeedCreature(category)
     end
     if creature.level < CREATURE_MAX_LEVEL then
         local req = self:GetCreatureXPRequirement(category, creature.level)
-        if req > 0 and creature.xp >= req then
+        local currentPhase = getCreaturePhaseForLevel(creature.level)
+        local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+        if req > 0 and creature.xp >= req and nextPhase > currentPhase then
             return true, "ready"
         end
     end
@@ -329,15 +371,27 @@ end
 
 function Progression:CanEvolveCreature(category)
     local creature = UGC.DB:GetCreatureProgress(category)
+    if self:_AdvanceCreatureNonEvolutionLevels(category, creature) then
+        UGC.DB:SetCreatureProgress(category, creature)
+    end
     if not creature.unlocked or creature.level >= CREATURE_MAX_LEVEL then
         return false
     end
     local req = self:GetCreatureXPRequirement(category, creature.level)
-    return req > 0 and (creature.xp or 0) >= req
+    if req <= 0 or (creature.xp or 0) < req then
+        return false
+    end
+
+    local currentPhase = getCreaturePhaseForLevel(creature.level)
+    local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+    return nextPhase > currentPhase
 end
 
 function Progression:EvolveCreature(category)
     local creature = UGC.DB:GetCreatureProgress(category)
+    if self:_AdvanceCreatureNonEvolutionLevels(category, creature) then
+        UGC.DB:SetCreatureProgress(category, creature)
+    end
     if not creature.unlocked then
         return false, "locked"
     end
@@ -348,6 +402,11 @@ function Progression:EvolveCreature(category)
     local req = self:GetCreatureXPRequirement(category, creature.level)
     if req <= 0 or (creature.xp or 0) < req then
         return false, "xp"
+    end
+    local currentPhase = getCreaturePhaseForLevel(creature.level)
+    local nextPhase = getCreaturePhaseForLevel(creature.level + 1)
+    if nextPhase <= currentPhase then
+        return false, "phase"
     end
 
     creature.xp = creature.xp - req
