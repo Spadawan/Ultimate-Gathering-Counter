@@ -17,12 +17,22 @@ local LEVELUP_PARTICLES = {
     "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_01",
     "Interface\\AddOns\\UltimateGatheringCounter\\media\\Misc_Holy_02",
 }
-local FEED_LEAF_PARTICLES = {
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_01.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_02.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_03.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_04.tga",
-    "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_05.tga",
+local FEED_PARTICLES_BY_CATEGORY = {
+    herbs = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\Leaf_05.tga",
+    },
+    ore = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_05.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\Stone_06.tga",
+    },
 }
 
 local ART_BY_CATEGORY = {
@@ -32,6 +42,13 @@ local ART_BY_CATEGORY = {
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_03",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_04",
         "Interface\\AddOns\\UltimateGatheringCounter\\media\\herbalism\\herb_05",
+    },
+    ore = {
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_01.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_02.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_03.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_04.tga",
+        "Interface\\AddOns\\UltimateGatheringCounter\\media\\mining\\mining_05.tga",
     },
 }
 
@@ -358,9 +375,11 @@ end
 
 function Creatures:_SpawnFeedLeafParticles()
     if not self.frame or not self._art then return end
+    local category = self._activeCategory or "herbs"
+    local feedParticles = FEED_PARTICLES_BY_CATEGORY[category] or FEED_PARTICLES_BY_CATEGORY.herbs
     for i = 1, 30 do
         local tex = self.frame:CreateTexture(nil, "OVERLAY")
-        tex:SetTexture(FEED_LEAF_PARTICLES[math.random(1, #FEED_LEAF_PARTICLES)])
+        tex:SetTexture(feedParticles[math.random(1, #feedParticles)])
         tex:SetBlendMode("BLEND")
         local size = math.random(9, 15)
         tex:SetSize(size, size)
