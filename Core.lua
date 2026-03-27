@@ -122,28 +122,6 @@ SlashCmdList["UGC"] = function(msg)
     elseif cmd == "version" then
         print("|cff33E633Ultimate Gathering Counter|r v" .. UGC.VERSION)
 
-    elseif strsub(cmd, 1, 3) == "xp " then
-        local cat, amount = cmd:match("^xp%s+(%a+)%s+(%d+)$")
-        if not cat or not amount or not UGC.CATEGORIES[cat] then
-            print("|cffff5555UGC:|r Usage: /ugc xp <herbs|ore|fish|leather> <amount>")
-            return
-        end
-        local ok, result = UGC.Progression:GrantProfessionXP(cat, amount)
-        if not ok then
-            print("|cffff5555UGC:|r Could not grant XP (" .. tostring(result) .. ").")
-            return
-        end
-
-        print(string.format("|cff33E633UGC:|r +%d EXP granted to %s (Lv.%d, %d XP).",
-            tonumber(amount) or 0, cat, result.level or 1, result.xp or 0))
-        if UGC.Overlay then UGC.Overlay:Refresh() end
-        if UGC.Details and UGC.Details.frame and UGC.Details.frame:IsShown() then
-            UGC.Details:Refresh()
-        end
-        if UGC.Creatures and UGC.Creatures.frame and UGC.Creatures.frame:IsShown() then
-            UGC.Creatures:Refresh()
-        end
-
     elseif cmd == "help" then
         print("|cff33E633————— Ultimate Gathering Counter " .. UGC.VERSION .. " —————|r")
         print("|cffffd700/ugc|r               Toggle main overlay")
@@ -153,7 +131,6 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc config|r         Open settings panel")
         print("|cffffd700/ugc leaderboard|r    Open community leaderboard tab")
         print("|cffffd700/ugc reset|r          Reset current session counters")
-        print("|cffffd700/ugc xp <cat> <n>|r   Grant test EXP to a profession")
         print("|cffffd700/ugc help|r           Show this help")
         if UGC.Compat:IsAddOnLoaded("Auctionator") then
             print("|cff33E633Auctionator|r detected — price data available.")

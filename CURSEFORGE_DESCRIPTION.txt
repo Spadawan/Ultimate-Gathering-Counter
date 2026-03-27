@@ -1,0 +1,32 @@
+Description
+Ultimate Gathering Counter (UGC) is a beginner-friendly addon for players who gather resources and want clear, useful stats without complicated setup.
+
+You get a live overlay for session tracking, per-hour performance, optional Auctionator value, gathering streak bonus XP, and progression levels/titles for each gathering category (Herbalism, Mining, Fishing, Skinning).
+
+UGC also includes companion creatures for each category, with leveling/evolution using your profession EXP, plus a creature panel and profession-only mode if you only want pure gathering stats.
+Need deeper stats? Open the detailed window for All Time / Week / Day / Last Hour breakdowns, best records, and progression summaries.
+Want social comparison? Use the built-in community leaderboard tab to compare with other UGC users through in-game addon channel sync.
+
+
+Commands:
+
+/ugc — Toggle the main overlay
+
+/ugc show — Show overlay
+
+/ugc hide — Hide overlay
+
+/ugc details — Open detailed statistics/community window
+
+/ugc config — Open settings panel
+
+/ugc leaderboard — Open community leaderboard tab
+
+/ugc reset — Reset current session counters
+
+/ugc version — Show addon version
+
+/ugc help — Show all commands
+
+
+No website required. No complex setup. Just gather and see your progress.
