@@ -88,6 +88,23 @@ local function decodePayload(msg)
     }
 end
 
+local function getChannelOrder()
+    if type(GetChannelList) ~= "function" then
+        return {}
+    end
+
+    local raw = { GetChannelList() }
+    local out = {}
+    for i = 1, #raw, 3 do
+        local id = tonumber(raw[i])
+        local name = tostring(raw[i + 1] or "")
+        if id and id > 0 and name ~= "" then
+            out[#out + 1] = { id = id, name = name }
+        end
+    end
+    return out
+end
+
 function Community:_getPlayerName()
     local full = GetUnitName and GetUnitName("player", true)
     if full and full ~= "" then
@@ -172,7 +189,31 @@ function Community:_joinChannel()
     if type(JoinChannelByName) ~= "function" then
         return false
     end
+    local previousOrder = getChannelOrder()
     JoinChannelByName(CHANNEL_NAME, nil, TARGET_CHAT_FRAME_ID)
+
+    if C_Timer and type(C_ChatInfo) == "table" and type(C_ChatInfo.SwapChatChannelsByChannelIndex) == "function" then
+        C_Timer.After(0.1, function()
+            local ugcChannelID = GetChannelName(CHANNEL_NAME)
+            if not ugcChannelID or ugcChannelID <= 0 then
+                return
+            end
+
+            local lastExistingChannelID = 0
+            for _, channel in ipairs(previousOrder) do
+                local currentID = GetChannelName(channel.name)
+                if currentID and currentID > 0 then
+                    lastExistingChannelID = math.max(lastExistingChannelID, currentID)
+                end
+            end
+
+            if ugcChannelID < lastExistingChannelID then
+                for idx = ugcChannelID, (lastExistingChannelID - 1) do
+                    C_ChatInfo.SwapChatChannelsByChannelIndex(idx, idx + 1)
+                end
+            end
+        end)
+    end
 
     if type(ChatFrame_RemoveChannel) == "function" then
         for i = 1, (NUM_CHAT_WINDOWS or 0) do
