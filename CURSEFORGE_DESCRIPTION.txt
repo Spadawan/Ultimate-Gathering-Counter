@@ -24,8 +24,6 @@ Commands:
 
 /ugc reset — Reset current session counters
 
-/ugc xp <herbs|ore|fish|leather> <amount> — Grant test EXP (debug/test command)
-
 /ugc version — Show addon version
 
 /ugc help — Show all commands
