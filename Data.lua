@@ -46,6 +46,7 @@ UGC.EXCLUDED_ITEM_IDS = {
     [242640] = true, -- Plant Protein
     [242639] = true, -- Presque du porc / Almost Pork
     [265800] = true, -- Garniture terreuse / Earthly Dressing
+    [204464] = true, -- Essence d'ombreflamme / Shadowflame Essence
     [210814] = true, -- Acuité artisanale / Artisan's Acuity
     [253802] = true, -- Acte de mécénat / Deed of Patronage
 }
@@ -319,6 +320,7 @@ addItems("fish", {
     [210815] = "Gloaming Cavefish",
     [224857] = "Deep Void Eel",
     [224858] = "Earthen Carp",
+    [265801] = "Anomalie savoureuse",
 })
 
 -------------------------------------------------------------------------------
