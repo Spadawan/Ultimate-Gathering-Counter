@@ -105,6 +105,48 @@ local function getChannelOrder()
     return out
 end
 
+function Community:_reorderChannelLast(maxPasses)
+    if type(C_ChatInfo) ~= "table"
+        or type(C_ChatInfo.SwapChatChannelsByChannelIndex) ~= "function" then
+        return
+    end
+
+    local passes = tonumber(maxPasses) or 1
+    for _ = 1, passes do
+        local order = getChannelOrder()
+        local ugcIndex
+        for idx, channel in ipairs(order) do
+            if channel.name == CHANNEL_NAME then
+                ugcIndex = idx
+                break
+            end
+        end
+
+        if not ugcIndex then
+            return
+        end
+        if ugcIndex >= #order then
+            return
+        end
+
+        C_ChatInfo.SwapChatChannelsByChannelIndex(order[ugcIndex].id, order[ugcIndex + 1].id)
+    end
+end
+
+function Community:_scheduleReorderChannelLast()
+    if not C_Timer or type(C_Timer.After) ~= "function" then
+        self:_reorderChannelLast(8)
+        return
+    end
+
+    local delays = { 0.2, 1.0, 2.0, 4.0 }
+    for _, delay in ipairs(delays) do
+        C_Timer.After(delay, function()
+            Community:_reorderChannelLast(8)
+        end)
+    end
+end
+
 function Community:_getPlayerName()
     local full = GetUnitName and GetUnitName("player", true)
     if full and full ~= "" then
@@ -189,31 +231,8 @@ function Community:_joinChannel()
     if type(JoinChannelByName) ~= "function" then
         return false
     end
-    local previousOrder = getChannelOrder()
     JoinChannelByName(CHANNEL_NAME, nil, TARGET_CHAT_FRAME_ID)
-
-    if C_Timer and type(C_ChatInfo) == "table" and type(C_ChatInfo.SwapChatChannelsByChannelIndex) == "function" then
-        C_Timer.After(0.1, function()
-            local ugcChannelID = GetChannelName(CHANNEL_NAME)
-            if not ugcChannelID or ugcChannelID <= 0 then
-                return
-            end
-
-            local lastExistingChannelID = 0
-            for _, channel in ipairs(previousOrder) do
-                local currentID = GetChannelName(channel.name)
-                if currentID and currentID > 0 then
-                    lastExistingChannelID = math.max(lastExistingChannelID, currentID)
-                end
-            end
-
-            if ugcChannelID < lastExistingChannelID then
-                for idx = ugcChannelID, (lastExistingChannelID - 1) do
-                    C_ChatInfo.SwapChatChannelsByChannelIndex(idx, idx + 1)
-                end
-            end
-        end)
-    end
+    self:_scheduleReorderChannelLast()
 
     if type(ChatFrame_RemoveChannel) == "function" then
         for i = 1, (NUM_CHAT_WINDOWS or 0) do
