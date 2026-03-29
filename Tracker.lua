@@ -26,6 +26,36 @@ local SKILLLINE_BY_CATEGORY = {
     leather = 393, -- Skinning
 }
 
+local EXCLUDED_NAME_PATTERNS = {
+    -- Pattern/Patron recipe-like reagents in multiple locales.
+    "%f[%a]patron%f[%A]",
+    "%f[%a]pattern%f[%A]",
+    "%f[%a]patr[oó]n%f[%A]",
+    "%f[%a]mod[eè]le%f[%A]",
+    "%f[%a]muster%f[%A]",
+    "%f[%a]sch[eé]ma%f[%A]",
+    "%f[%a]schema%f[%A]",
+    -- Crest/Ecu-like currencies that should never be tracked.
+    "%f[%a]crest%f[%A]",
+    "%f[%a][eéÉ]cu%f[%A]",
+    "%f[%a]escudo%f[%A]",
+}
+
+local function _nameMatchesExcludedPattern(name)
+    if type(name) ~= "string" or name == "" then
+        return false
+    end
+
+    local lowered = string.lower(name)
+    for _, pattern in ipairs(EXCLUDED_NAME_PATTERNS) do
+        if lowered:find(pattern) then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function _extractLootPrefix(fmt)
     if type(fmt) ~= "string" or fmt == "" then
         return nil
@@ -191,6 +221,22 @@ function Tracker:_isExcludedLeatherEquipment(itemID, category)
     return false
 end
 
+function Tracker:_isExcludedItem(itemID, itemName)
+    if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+        return true
+    end
+
+    local name = itemName
+    if not name then
+        local cached = UGC.DB and UGC.DB.GetCachedItem and UGC.DB:GetCachedItem(itemID)
+        if cached then
+            name = cached.name
+        end
+    end
+
+    return _nameMatchesExcludedPattern(name)
+end
+
 function Tracker:_captureSnapshot()
     local settings = UGC.DB:GetSettings()
     local snapshot = {}
@@ -201,7 +247,7 @@ function Tracker:_captureSnapshot()
             for slot = 1, numSlots do
                 local itemID, stackCount = self:_getSlotInfo(bag, slot)
                 if itemID then
-                    if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+                    if self:_isExcludedItem(itemID) then
                         UGC.ITEM_DB[itemID] = nil
                     elseif UGC.ITEM_DB[itemID] then
                         local knownCategory = UGC.ITEM_DB[itemID].category
@@ -436,6 +482,11 @@ end
 -------------------------------------------------------------------------------
 function Tracker:DetectItemCategory(itemID)
     local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
+    if self:_isExcludedItem(itemID, name) then
+        UGC.ITEM_DB[itemID] = nil
+        return nil
+    end
+
     local cat = GetDynamicCategoryFromItemInfo(itemID)
 
     if self:_isExcludedLeatherEquipment(itemID, cat) then
@@ -453,6 +504,11 @@ end
 -------------------------------------------------------------------------------
 function Tracker:RequestItemCache(itemID)
     local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo(itemID)
+    if self:_isExcludedItem(itemID, name) then
+        UGC.ITEM_DB[itemID] = nil
+        return
+    end
+
     if name and texture then
         UGC.DB:CacheItem(itemID, name, texture, GetDisplayQuality(itemID, quality))
         -- Update hint in ITEM_DB
@@ -464,6 +520,11 @@ function Tracker:RequestItemCache(itemID)
     -- Item data not loaded yet — retry after client cache populates
     C_Timer.After(2.0, function()
         local n, _, q, _, _, _, _, _, _, t = GetItemInfo(itemID)
+        if self:_isExcludedItem(itemID, n) then
+            UGC.ITEM_DB[itemID] = nil
+            return
+        end
+
         if n and t then
             UGC.DB:CacheItem(itemID, n, t, GetDisplayQuality(itemID, q))
             if UGC.ITEM_DB[itemID] then
@@ -497,7 +558,7 @@ function Tracker:GetTrackedItems(categoryFilter, sortBy)
     local result    = {}
 
     for itemID, data in pairs(UGC.ITEM_DB) do
-        if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+        if self:_isExcludedItem(itemID, data.hint) then
             UGC.ITEM_DB[itemID] = nil
         else
         local cat = data.category
@@ -582,7 +643,8 @@ function Tracker:ParseLootMessage(msg)
 
     local itemID = tonumber(itemLink:match("item:(%d+)"))
     if not itemID then return end
-    if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
+    local itemName = msg:match("|h%[([^%]]+)%]|h")
+    if self:_isExcludedItem(itemID, itemName) then
         return
     end
 

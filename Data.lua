@@ -47,6 +47,7 @@ UGC.EXCLUDED_ITEM_IDS = {
     [242639] = true, -- Presque du porc / Almost Pork
     [265800] = true, -- Garniture terreuse / Earthly Dressing
     [210814] = true, -- Acuité artisanale / Artisan's Acuity
+    [253802] = true, -- Acte de mécénat / Deed of Patronage
 }
 
 local function addItems(category, tbl)
