@@ -7,6 +7,10 @@
 local UGC = _G.UGC
 
 local eventFrame = CreateFrame("Frame", "UGC_CoreFrame")
+local function SafeRegisterEvent(frame, eventName)
+    local ok = pcall(frame.RegisterEvent, frame, eventName)
+    return ok
+end
 
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -18,7 +22,7 @@ eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 eventFrame:RegisterEvent("ZONE_CHANGED")
 eventFrame:RegisterEvent("MINIMAP_UPDATE_ZOOM")
-eventFrame:RegisterEvent("WORLD_MAP_UPDATE")
+SafeRegisterEvent(eventFrame, "WORLD_MAP_UPDATE")
 
 -------------------------------------------------------------------------------
 -- Event dispatcher
