@@ -11,12 +11,12 @@ local MetaMap = UGC.MetaMap
 local PROTOCOL_VERSION = 1
 local MSG_TYPE_HEAT = "H"
 
-local CELL_SIZE = 0.05            -- 20x20 grid per map
+local CELL_SIZE = 0.01            -- 100x100 grid per map
 local SEND_INTERVAL = 30          -- sec (quasi real-time)
 local RENDER_INTERVAL = 5         -- sec
 local MAX_CELLS_PER_PACKET = 16
 local RETAIN_SECONDS = 24 * 3600
-local MINIMAP_PIXELS_PER_CELL = 10
+local MINIMAP_PIXELS_PER_CELL = 20
 
 local WINDOW_SECONDS = {
     short = 30 * 60,
@@ -377,6 +377,16 @@ function MetaMap:_renderMinimap(cells, playerX, playerY)
         local dyCells = (playerY - c.y) / CELL_SIZE
         local dx = dxCells * MINIMAP_PIXELS_PER_CELL
         local dy = dyCells * MINIMAP_PIXELS_PER_CELL
+
+        if GetCVar and GetPlayerFacing and GetCVar("rotateMinimap") == "1" then
+            local facing = GetPlayerFacing() or 0
+            local cosA = math.cos(facing)
+            local sinA = math.sin(facing)
+            local rdx = (dx * cosA) - (dy * sinA)
+            local rdy = (dx * sinA) + (dy * cosA)
+            dx, dy = rdx, rdy
+        end
+
         if (dx * dx + dy * dy) <= (80 * 80) then
             local dot = ensureDot(self._miniDots, Minimap)
             dot:SetSize(9, 9)
@@ -506,6 +516,15 @@ function MetaMap:Init()
                 MetaMap:FlushNetwork(false)
                 MetaMap:Refresh(false)
             end
+        end)
+    end
+
+    if WorldMapFrame and WorldMapFrame.HookScript then
+        WorldMapFrame:HookScript("OnShow", function()
+            MetaMap:Refresh(true)
+        end)
+        WorldMapFrame:HookScript("OnSizeChanged", function()
+            MetaMap:Refresh(true)
         end)
     end
 end
