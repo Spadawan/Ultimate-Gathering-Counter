@@ -9,7 +9,6 @@ UGC.MetaMap = {}
 local MetaMap = UGC.MetaMap
 
 local PROTOCOL_VERSION = 1
-local MSG_PREFIX = "UGC_SYNC"
 local MSG_TYPE_HEAT = "H"
 
 local CELL_SIZE = 0.05            -- 20x20 grid per map
@@ -29,6 +28,7 @@ MetaMap._lastSend = 0
 MetaMap._lastRender = 0
 MetaMap._worldDots = {}
 MetaMap._miniDots = {}
+MetaMap._recentPings = {}
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -128,6 +128,13 @@ function MetaMap:RecordGather(category)
     pending.ts = now
 
     UGC.DB:UpsertCommunityHeatCell(ctx, cx, cy, category, 1, now, true)
+    self._recentPings[#self._recentPings + 1] = {
+        context = ctx,
+        x = (cx + 0.5) * CELL_SIZE,
+        y = (cy + 0.5) * CELL_SIZE,
+        ts = now,
+    }
+    self:Refresh(true)
 end
 
 local function encodeHeatPacket(cells)
@@ -240,6 +247,15 @@ local function colorFromScore(score)
     return r, g, b, a
 end
 
+local function pruneRecentPings(list, now)
+    for i = #list, 1, -1 do
+        local p = list[i]
+        if not p or (now - (p.ts or 0)) > 20 then
+            tremove(list, i)
+        end
+    end
+end
+
 local function ensureDot(pool, parent)
     local dot = tremove(pool)
     if dot and dot.SetParent then
@@ -272,7 +288,7 @@ function MetaMap:_renderWorldMap(cells)
 
     for _, c in ipairs(cells) do
         local dot = ensureDot(self._worldDots, parent)
-        dot:SetSize(10, 10)
+        dot:SetSize(14, 14)
         dot:SetPoint("CENTER", parent, "TOPLEFT", c.x * parent:GetWidth(), -c.y * parent:GetHeight())
         dot:SetColorTexture(c.r, c.g, c.b, c.a)
         dot:Show()
@@ -290,7 +306,7 @@ function MetaMap:_renderMinimap(cells)
         local dy = (0.5 - c.y) * 160
         if (dx * dx + dy * dy) <= (80 * 80) then
             local dot = ensureDot(self._miniDots, Minimap)
-            dot:SetSize(5, 5)
+            dot:SetSize(9, 9)
             dot:SetPoint("CENTER", Minimap, "CENTER", dx, dy)
             dot:SetColorTexture(c.r, c.g, c.b, c.a)
             dot:Show()
@@ -319,6 +335,8 @@ function MetaMap:Refresh(force)
     local context = getMapContextKey(mapID)
     local rawCells = UGC.DB:GetCommunityHeatCells(context)
     local prepared = {}
+    local nowServer = UGC.Compat:GetServerTime()
+    pruneRecentPings(self._recentPings, nowServer)
 
     for _, cell in ipairs(rawCells) do
         if s.metaMapCategory == "all" or cell.category == s.metaMapCategory then
@@ -331,6 +349,16 @@ function MetaMap:Refresh(force)
                     r = r, g = g, b = b, a = a,
                 }
             end
+        end
+    end
+
+    for _, ping in ipairs(self._recentPings) do
+        if ping.context == context then
+            prepared[#prepared + 1] = {
+                x = ping.x,
+                y = ping.y,
+                r = 1.0, g = 0.95, b = 0.2, a = 0.95,
+            }
         end
     end
 
@@ -358,8 +386,21 @@ end
 
 function MetaMap:Init()
     self:_getSettings()
-    C_Timer.NewTicker(5, function()
-        MetaMap:FlushNetwork(false)
-        MetaMap:Refresh(false)
-    end)
+    if C_Timer and C_Timer.NewTicker then
+        C_Timer.NewTicker(5, function()
+            MetaMap:FlushNetwork(false)
+            MetaMap:Refresh(false)
+        end)
+    else
+        local ticker = CreateFrame("Frame")
+        local elapsed = 0
+        ticker:SetScript("OnUpdate", function(_, dt)
+            elapsed = elapsed + (dt or 0)
+            if elapsed >= 5 then
+                elapsed = 0
+                MetaMap:FlushNetwork(false)
+                MetaMap:Refresh(false)
+            end
+        end)
+    end
 end
