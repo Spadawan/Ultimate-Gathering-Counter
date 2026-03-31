@@ -137,7 +137,10 @@ end
 
 function MetaMap:RecordGather(category)
     local s = self:_getSettings()
-    if not s.metaMapEnabled then return end
+    if not s.metaMapEnabled then
+        self:_debug("RecordGather ignored: metaMapEnabled=false")
+        return
+    end
 
     local mapID, x, y = getPlayerMapPosition()
     if not mapID then return end
@@ -452,6 +455,13 @@ end
 
 function MetaMap:SetDebugEnabled(enabled)
     self._debugEnabled = enabled == true
+    if self._debugEnabled then
+        local s = self:_getSettings()
+        if s.metaMapEnabled == false then
+            s.metaMapEnabled = true
+            print("|cff33E633UGC MetaMap|r debug auto-enabled Meta-map display")
+        end
+    end
     print("|cff33E633UGC MetaMap|r debug " .. (self._debugEnabled and "ON" or "OFF"))
     self:DebugDump()
 end
