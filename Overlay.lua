@@ -24,6 +24,7 @@ local ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 local ICON_DETAILS = "Interface\\GossipFrame\\ActiveQuestIcon"
 local ICON_CONFIG  = "Interface\\Buttons\\UI-OptionsButton"
 local ICON_ADDON   = "Interface\\Icons\\Ability_Tracking"  -- icône addon (tracking, dispo Classic+Retail)
+local ICON_HEATMAP = "Interface\\Icons\\Spell_Fire_MeteorStorm"
 local ICON_MONSTER = "Interface\\AddOns\\UltimateGatheringCounter\\media\\monster"
 local STAR_BRONZE  = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star"
 local STAR_SILVER  = "Interface\\AddOns\\UltimateGatheringCounter\\media\\star_silver"
@@ -342,10 +343,31 @@ function Overlay:Init()
     end)
     configBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    -- Community heatmap toggle
+    local heatBtn = CreateFrame("Button", nil, f)
+    heatBtn:SetSize(16, 16)
+    heatBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    heatBtn:SetNormalTexture(ICON_HEATMAP)
+    heatBtn:SetHighlightTexture(ICON_HEATMAP, "ADD")
+    heatBtn:SetScript("OnClick", function()
+        if UGC.MetaMap then
+            UGC.MetaMap:ToggleEnabled()
+        end
+    end)
+    heatBtn:SetScript("OnEnter", function(self)
+        local settings = UGC.DB:GetSettings()
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+        GameTooltip:SetText("Community Meta-map: " .. ((settings.metaMapEnabled ~= false) and "|cff33ff33ON|r" or "|cffff6666OFF|r"))
+        GameTooltip:AddLine("Shows anonymous aggregated harvesting hotspots.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Color legend: blue low, green medium, red high.", 0.7, 0.9, 1.0, true)
+        GameTooltip:Show()
+    end)
+    heatBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     -- Creature window
     local monsterBtn = CreateFrame("Button", nil, f)
     monsterBtn:SetSize(16, 16)
-    monsterBtn:SetPoint("RIGHT", configBtn, "LEFT", -4, 0)
+    monsterBtn:SetPoint("RIGHT", heatBtn, "LEFT", -4, 0)
     monsterBtn:SetNormalTexture(ICON_MONSTER)
     monsterBtn:SetHighlightTexture(ICON_MONSTER, "ADD")
     monsterBtn:GetNormalTexture():SetTexCoord(0.08, 0.92, 0.08, 0.92)

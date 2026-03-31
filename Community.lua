@@ -328,6 +328,10 @@ function Community:OnAddonMessage(prefix, message, channel, sender)
     sender = self:_normalizePlayerName(sender)
     if not sender then return end
 
+    if UGC.MetaMap and UGC.MetaMap.OnHeatPacket and UGC.MetaMap:OnHeatPacket(message) then
+        return
+    end
+
     local msgType = tostring(message or ""):match("^([A-Z])")
     if msgType == "R" then
         self:BroadcastSnapshot(false)

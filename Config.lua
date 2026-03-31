@@ -331,6 +331,73 @@ function Config:Init()
     yOff = yOff - 28
 
     -- ════════════════════════════════════════════════════
+    -- SECTION: Community Meta-map
+    -- ════════════════════════════════════════════════════
+    _, y = MakeSection(content, "Community Meta-map", yOff)
+    yOff = y
+
+    _, yOff = MakeCheckbox(content, "Enable community heatmap overlay", yOff,
+        function() return s.metaMapEnabled ~= false end,
+        function(v)
+            s.metaMapEnabled = v
+            if UGC.MetaMap then UGC.MetaMap:Refresh(true) end
+        end)
+
+    _, yOff = MakeCheckbox(content, "Show heatmap on world map", yOff,
+        function() return s.metaMapOnWorldMap ~= false end,
+        function(v)
+            s.metaMapOnWorldMap = v
+            if UGC.MetaMap then UGC.MetaMap:Refresh(true) end
+        end)
+
+    _, yOff = MakeCheckbox(content, "Show heatmap on minimap", yOff,
+        function() return s.metaMapOnMinimap ~= false end,
+        function(v)
+            s.metaMapOnMinimap = v
+            if UGC.MetaMap then UGC.MetaMap:Refresh(true) end
+        end)
+
+    local WINDOW_ORDER = { "short", "medium", "long" }
+    local WINDOW_LABELS = { short = "30 min", medium = "2 h", long = "24 h" }
+    local function cycleWindow()
+        local cur = s.metaMapWindow or "medium"
+        local idx = 2
+        for i, key in ipairs(WINDOW_ORDER) do
+            if key == cur then
+                idx = i
+                break
+            end
+        end
+        s.metaMapWindow = WINDOW_ORDER[(idx % #WINDOW_ORDER) + 1]
+    end
+    local mapWindowBtn = MakeButton(content, "", 150, 22, 10, yOff, function(self)
+        cycleWindow()
+        self:SetText("Window: " .. (WINDOW_LABELS[s.metaMapWindow] or "2 h"))
+        if UGC.MetaMap then UGC.MetaMap:Refresh(true) end
+    end)
+    mapWindowBtn:SetText("Window: " .. (WINDOW_LABELS[s.metaMapWindow or "medium"] or "2 h"))
+
+    local CATS = { "all", "herbs", "ore", "fish", "leather" }
+    local function cycleCategory()
+        local cur = s.metaMapCategory or "all"
+        local idx = 1
+        for i, key in ipairs(CATS) do
+            if key == cur then
+                idx = i
+                break
+            end
+        end
+        s.metaMapCategory = CATS[(idx % #CATS) + 1]
+    end
+    local mapCatBtn = MakeButton(content, "", 150, 22, 165, yOff, function(self)
+        cycleCategory()
+        self:SetText("Filter: " .. s.metaMapCategory)
+        if UGC.MetaMap then UGC.MetaMap:Refresh(true) end
+    end)
+    mapCatBtn:SetText("Filter: " .. (s.metaMapCategory or "all"))
+    yOff = yOff - 30
+
+    -- ════════════════════════════════════════════════════
     -- SECTION: Data Management
     -- ════════════════════════════════════════════════════
     _, y = MakeSection(content, "Data Management", yOff)

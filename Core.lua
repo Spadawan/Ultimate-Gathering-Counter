@@ -15,6 +15,9 @@ eventFrame:RegisterEvent("CHAT_MSG_LOOT")
 eventFrame:RegisterEvent("PLAYER_LOGOUT")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("CHAT_MSG_ADDON")
+eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+eventFrame:RegisterEvent("ZONE_CHANGED")
+eventFrame:RegisterEvent("MINIMAP_UPDATE_ZOOM")
 
 -------------------------------------------------------------------------------
 -- Event dispatcher
@@ -37,6 +40,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         UGC.Config:Init()
         if UGC.Community then
             UGC.Community:Init()
+        end
+        if UGC.MetaMap then
+            UGC.MetaMap:Init()
         end
 
         print(string.format(
@@ -76,6 +82,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         local prefix, message, channel, sender = arg1, ...
         if UGC.Community then
             UGC.Community:OnAddonMessage(prefix, message, channel, sender)
+        end
+
+    elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "MINIMAP_UPDATE_ZOOM" then
+        if UGC.MetaMap then
+            UGC.MetaMap:Refresh(true)
         end
 
     elseif event == "PLAYER_LOGOUT" then
@@ -122,6 +133,13 @@ SlashCmdList["UGC"] = function(msg)
     elseif cmd == "version" then
         print("|cff33E633Ultimate Gathering Counter|r v" .. UGC.VERSION)
 
+    elseif cmd == "metamap" or cmd == "heatmap" then
+        if UGC.MetaMap then
+            UGC.MetaMap:ToggleEnabled()
+            local enabled = UGC.DB:GetSettings().metaMapEnabled ~= false
+            print("|cff33E633UGC:|r Community Meta-map " .. (enabled and "enabled." or "disabled."))
+        end
+
     elseif cmd == "help" then
         print("|cff33E633————— Ultimate Gathering Counter " .. UGC.VERSION .. " —————|r")
         print("|cffffd700/ugc|r               Toggle main overlay")
@@ -130,6 +148,7 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc details|r        Open statistics window")
         print("|cffffd700/ugc config|r         Open settings panel")
         print("|cffffd700/ugc leaderboard|r    Open community leaderboard tab")
+        print("|cffffd700/ugc metamap|r        Toggle community heatmap")
         print("|cffffd700/ugc reset|r          Reset current session counters")
         print("|cffffd700/ugc help|r           Show this help")
         if UGC.Compat:IsAddOnLoaded("Auctionator") then

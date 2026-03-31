@@ -10,7 +10,7 @@ UGC.DB = {}
 local DB = UGC.DB
 local getLegacyNameKey, getCharacterKey
 
-local SCHEMA_VERSION = 9
+local SCHEMA_VERSION = 10
 
 local DEFAULTS = {
     version  = SCHEMA_VERSION,
@@ -33,6 +33,11 @@ local DEFAULTS = {
         detailsHeight       = 480,
         professionOnlyMode  = false, -- hide RPG/progression features (XP, chains, creatures)
         leaderboardAutoJoin = true, -- default enabled; stays off if player leaves leaderboard channel
+        metaMapEnabled      = true,
+        metaMapWindow       = "medium", -- short (30m), medium (2h), long (24h)
+        metaMapCategory     = "all",
+        metaMapOnMinimap    = true,
+        metaMapOnWorldMap   = true,
     },
     allTime        = {},
     weekly         = { weekStart = 0 },
@@ -57,6 +62,10 @@ local DEFAULTS = {
     legacyStatsMigrated = false,
     community = {
         peers = {},
+        lastCleanup = 0,
+    },
+    communityHeatmap = {
+        cells = {},
         lastCleanup = 0,
     },
 }
@@ -136,6 +145,11 @@ function DB:Init()
     if ver < 9 then
         if type(UGC_DB.creatureProgressByCharacter) ~= "table" then
             UGC_DB.creatureProgressByCharacter = {}
+        end
+    end
+    if ver < 10 then
+        if type(UGC_DB.communityHeatmap) ~= "table" then
+            UGC_DB.communityHeatmap = { cells = {}, lastCleanup = 0 }
         end
     end
     if ver < SCHEMA_VERSION then
@@ -693,4 +707,75 @@ function DB:RemoveCommunityPeer(name)
     if type(name) ~= "string" or name == "" then return end
     local peers = self:GetCommunityPeers()
     peers[name] = nil
+end
+
+-------------------------------------------------------------------------------
+-- Community heatmap (anonymized aggregated cells)
+-------------------------------------------------------------------------------
+function DB:GetCommunityHeatmapStore()
+    UGC_DB.communityHeatmap = UGC_DB.communityHeatmap or { cells = {}, lastCleanup = 0 }
+    UGC_DB.communityHeatmap.cells = UGC_DB.communityHeatmap.cells or {}
+    return UGC_DB.communityHeatmap
+end
+
+function DB:UpsertCommunityHeatCell(context, cx, cy, category, count, ts, isLocal)
+    if type(context) ~= "string" or context == "" then return end
+    if type(category) ~= "string" or category == "" then return end
+    local x = tonumber(cx)
+    local y = tonumber(cy)
+    local n = tonumber(count) or 0
+    if not x or not y or n <= 0 then return end
+
+    local store = self:GetCommunityHeatmapStore()
+    local key = string.format("%s|%d|%d|%s", context, x, y, category)
+    local cell = store.cells[key]
+    if type(cell) ~= "table" then
+        cell = {
+            context = context,
+            cx = x,
+            cy = y,
+            category = category,
+            count = 0,
+            samples = 0,
+            localCount = 0,
+            remoteCount = 0,
+            lastUpdate = 0,
+        }
+        store.cells[key] = cell
+    end
+
+    cell.count = (cell.count or 0) + n
+    cell.samples = (cell.samples or 0) + 1
+    if isLocal then
+        cell.localCount = (cell.localCount or 0) + n
+    else
+        cell.remoteCount = (cell.remoteCount or 0) + n
+    end
+    cell.lastUpdate = tonumber(ts) or UGC.Compat:GetServerTime()
+end
+
+function DB:GetCommunityHeatCells(context)
+    if type(context) ~= "string" or context == "" then
+        return {}
+    end
+    local store = self:GetCommunityHeatmapStore()
+    local out = {}
+    for _, cell in pairs(store.cells) do
+        if cell and cell.context == context then
+            out[#out + 1] = cell
+        end
+    end
+    return out
+end
+
+function DB:PruneCommunityHeatCells(maxAgeSeconds)
+    local store = self:GetCommunityHeatmapStore()
+    local now = UGC.Compat:GetServerTime()
+    local ttl = tonumber(maxAgeSeconds) or (24 * 3600)
+    for key, cell in pairs(store.cells) do
+        if not cell or (now - (tonumber(cell.lastUpdate) or 0)) > ttl then
+            store.cells[key] = nil
+        end
+    end
+    store.lastCleanup = now
 end

@@ -440,6 +440,9 @@ function Tracker:ScanBags()
         UGC.DB:RecordGatherAction(cat)
         UGC.Session.gatherCount[cat] = (UGC.Session.gatherCount[cat] or 0) + 1
         hadGatherUpdate = true
+        if UGC.MetaMap and UGC.MetaMap.RecordGather then
+            UGC.MetaMap:RecordGather(cat)
+        end
         if UGC.Progression then
             UGC.Progression:AddGatherAction(cat, gainInfo and gainInfo.itemID)
         end
