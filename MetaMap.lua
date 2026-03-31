@@ -57,27 +57,50 @@ local function getMapContextKey(mapID)
 end
 
 local function getPlayerMapPosition()
-    if not C_Map or not C_Map.GetBestMapForUnit or not C_Map.GetPlayerMapPosition then
+    if C_Map and C_Map.GetBestMapForUnit and C_Map.GetPlayerMapPosition then
+        local mapID = C_Map.GetBestMapForUnit("player")
+        if mapID then
+            local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+            if pos then
+                local x, y
+                if type(pos) == "table" and pos.GetXY then
+                    x, y = pos:GetXY()
+                elseif type(pos) == "table" then
+                    x, y = pos.x, pos.y
+                end
+
+                if x and y and x >= 0 and x <= 1 and y >= 0 and y <= 1 then
+                    return mapID, x, y
+                end
+            end
+        end
+    end
+
+    -- Classic / legacy fallback
+    if SetMapToCurrentZone then
+        pcall(SetMapToCurrentZone)
+    end
+    if not GetPlayerMapPosition then
         return nil
     end
 
-    local mapID = C_Map.GetBestMapForUnit("player")
-    if not mapID then return nil end
-
-    local pos = C_Map.GetPlayerMapPosition(mapID, "player")
-    if not pos then return nil end
-
-    local x, y
-    if type(pos) == "table" and pos.GetXY then
-        x, y = pos:GetXY()
-    elseif type(pos) == "table" then
-        x, y = pos.x, pos.y
+    local x, y = GetPlayerMapPosition("player")
+    if not x or not y then
+        return nil
+    end
+    if x <= 0 and y <= 0 then
+        return nil
     end
 
-    if not x or not y then return nil end
-    if x < 0 or x > 1 or y < 0 or y > 1 then return nil end
-
-    return mapID, x, y
+    local legacyMapID = 0
+    if GetCurrentMapAreaID then
+        legacyMapID = tonumber(GetCurrentMapAreaID()) or 0
+    end
+    if legacyMapID <= 0 then
+        -- fallback stable bucket for legacy clients without map IDs
+        legacyMapID = 1
+    end
+    return legacyMapID, clamp(x, 0, 1), clamp(y, 0, 1)
 end
 
 local function makeCellXY(x, y)
