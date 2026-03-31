@@ -16,6 +16,7 @@ local SEND_INTERVAL = 30          -- sec (quasi real-time)
 local RENDER_INTERVAL = 5         -- sec
 local MAX_CELLS_PER_PACKET = 16
 local RETAIN_SECONDS = 24 * 3600
+local MINIMAP_PIXELS_PER_CELL = 10
 
 local WINDOW_SECONDS = {
     short = 30 * 60,
@@ -267,6 +268,20 @@ local function ensureDot(pool, parent)
     return dot
 end
 
+local function paintDot(dot, r, g, b, a)
+    if dot.SetColorTexture then
+        dot:SetColorTexture(r, g, b, a)
+        return
+    end
+    dot:SetTexture("Interface\\Buttons\\WHITE8X8")
+    if dot.SetVertexColor then
+        dot:SetVertexColor(r, g, b, a or 1)
+    end
+    if dot.SetAlpha then
+        dot:SetAlpha(a or 1)
+    end
+end
+
 local function recycleDots(active, pool)
     for i = 1, #active do
         local d = active[i]
@@ -279,10 +294,15 @@ local function recycleDots(active, pool)
 end
 
 function MetaMap:_renderWorldMap(cells)
-    if not WorldMapFrame or not WorldMapFrame.ScrollContainer or not WorldMapFrame.ScrollContainer.Child then
+    if not WorldMapFrame then
         return
     end
-    local parent = WorldMapFrame.ScrollContainer.Child
+    local parent = (WorldMapFrame.ScrollContainer and WorldMapFrame.ScrollContainer.Child)
+        or WorldMapDetailFrame
+        or WorldMapButton
+    if not parent then
+        return
+    end
     recycleDots(self._worldActiveDots or {}, self._worldDots)
     self._worldActiveDots = self._worldActiveDots or {}
 
@@ -290,25 +310,28 @@ function MetaMap:_renderWorldMap(cells)
         local dot = ensureDot(self._worldDots, parent)
         dot:SetSize(14, 14)
         dot:SetPoint("CENTER", parent, "TOPLEFT", c.x * parent:GetWidth(), -c.y * parent:GetHeight())
-        dot:SetColorTexture(c.r, c.g, c.b, c.a)
+        paintDot(dot, c.r, c.g, c.b, c.a)
         dot:Show()
         self._worldActiveDots[#self._worldActiveDots + 1] = dot
     end
 end
 
-function MetaMap:_renderMinimap(cells)
+function MetaMap:_renderMinimap(cells, playerX, playerY)
     if not Minimap then return end
+    if not playerX or not playerY then return end
     recycleDots(self._miniActiveDots or {}, self._miniDots)
     self._miniActiveDots = self._miniActiveDots or {}
 
     for _, c in ipairs(cells) do
-        local dx = (c.x - 0.5) * 160
-        local dy = (0.5 - c.y) * 160
+        local dxCells = (c.x - playerX) / CELL_SIZE
+        local dyCells = (playerY - c.y) / CELL_SIZE
+        local dx = dxCells * MINIMAP_PIXELS_PER_CELL
+        local dy = dyCells * MINIMAP_PIXELS_PER_CELL
         if (dx * dx + dy * dy) <= (80 * 80) then
             local dot = ensureDot(self._miniDots, Minimap)
             dot:SetSize(9, 9)
             dot:SetPoint("CENTER", Minimap, "CENTER", dx, dy)
-            dot:SetColorTexture(c.r, c.g, c.b, c.a)
+            paintDot(dot, c.r, c.g, c.b, c.a)
             dot:Show()
             self._miniActiveDots[#self._miniActiveDots + 1] = dot
         end
@@ -328,7 +351,7 @@ function MetaMap:Refresh(force)
         return
     end
 
-    local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    local mapID, playerX, playerY = getPlayerMapPosition()
     if not mapID then return end
 
     local windowSec = WINDOW_SECONDS[s.metaMapWindow] or WINDOW_SECONDS.medium
@@ -369,7 +392,7 @@ function MetaMap:Refresh(force)
     end
 
     if s.metaMapOnMinimap then
-        self:_renderMinimap(prepared)
+        self:_renderMinimap(prepared, playerX, playerY)
     else
         recycleDots(self._miniActiveDots or {}, self._miniDots)
     end
