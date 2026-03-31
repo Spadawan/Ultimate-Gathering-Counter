@@ -140,6 +140,13 @@ SlashCmdList["UGC"] = function(msg)
             print("|cff33E633UGC:|r Community Meta-map " .. (enabled and "enabled." or "disabled."))
         end
 
+    elseif cmd == "metamapdebug" or cmd == "heatmapdebug" then
+        if UGC.MetaMap and UGC.MetaMap.SetDebugEnabled then
+            local nextValue = not (UGC.MetaMap._debugEnabled == true)
+            UGC.MetaMap:SetDebugEnabled(nextValue)
+            UGC.MetaMap:Refresh(true)
+        end
+
     elseif cmd == "help" then
         print("|cff33E633————— Ultimate Gathering Counter " .. UGC.VERSION .. " —————|r")
         print("|cffffd700/ugc|r               Toggle main overlay")
@@ -149,6 +156,7 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc config|r         Open settings panel")
         print("|cffffd700/ugc leaderboard|r    Open community leaderboard tab")
         print("|cffffd700/ugc metamap|r        Toggle community heatmap")
+        print("|cffffd700/ugc metamapdebug|r   Toggle debug traces for heatmap")
         print("|cffffd700/ugc reset|r          Reset current session counters")
         print("|cffffd700/ugc help|r           Show this help")
         if UGC.Compat:IsAddOnLoaded("Auctionator") then

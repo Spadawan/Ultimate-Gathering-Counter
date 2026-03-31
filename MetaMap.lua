@@ -30,11 +30,23 @@ MetaMap._lastRender = 0
 MetaMap._worldDots = {}
 MetaMap._miniDots = {}
 MetaMap._recentPings = {}
+MetaMap._debugEnabled = false
+MetaMap._lastDebugTs = 0
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
     return v
+end
+
+function MetaMap:_debug(msg)
+    if not self._debugEnabled then return end
+    local now = GetTime and GetTime() or 0
+    if (now - (self._lastDebugTs or 0)) < 0.2 then
+        return
+    end
+    self._lastDebugTs = now
+    print("|cff33E633UGC MetaMap|r " .. tostring(msg))
 end
 
 local function split(str, sep)
@@ -129,6 +141,7 @@ function MetaMap:RecordGather(category)
 
     local mapID, x, y = getPlayerMapPosition()
     if not mapID then return end
+    self:_debug(string.format("RecordGather cat=%s map=%s pos=%.3f/%.3f", tostring(category), tostring(mapID), x or -1, y or -1))
 
     local cx, cy = makeCellXY(x, y)
     local ctx = getMapContextKey(mapID)
@@ -375,7 +388,10 @@ function MetaMap:Refresh(force)
     end
 
     local mapID, playerX, playerY = getPlayerMapPosition()
-    if not mapID then return end
+    if not mapID then
+        self:_debug("Refresh skipped: no map position available")
+        return
+    end
 
     local windowSec = WINDOW_SECONDS[s.metaMapWindow] or WINDOW_SECONDS.medium
     local context = getMapContextKey(mapID)
@@ -408,6 +424,10 @@ function MetaMap:Refresh(force)
         end
     end
 
+    self:_debug(string.format("Refresh map=%s cells=%d pings=%d minimap=%s world=%s",
+        tostring(mapID), #prepared, #self._recentPings,
+        tostring(s.metaMapOnMinimap ~= false), tostring(s.metaMapOnWorldMap ~= false)))
+
     if s.metaMapOnWorldMap then
         self:_renderWorldMap(prepared)
     else
@@ -428,6 +448,24 @@ function MetaMap:ToggleEnabled()
     local s = self:_getSettings()
     s.metaMapEnabled = not s.metaMapEnabled
     self:Refresh(true)
+end
+
+function MetaMap:SetDebugEnabled(enabled)
+    self._debugEnabled = enabled == true
+    print("|cff33E633UGC MetaMap|r debug " .. (self._debugEnabled and "ON" or "OFF"))
+    self:DebugDump()
+end
+
+function MetaMap:DebugDump()
+    local s = self:_getSettings()
+    local mapID, x, y = getPlayerMapPosition()
+    local ctx = mapID and getMapContextKey(mapID) or "n/a"
+    local count = (ctx ~= "n/a") and #UGC.DB:GetCommunityHeatCells(ctx) or 0
+    print(string.format("|cff33E633UGC MetaMap|r state enabled=%s minimap=%s world=%s window=%s cat=%s",
+        tostring(s.metaMapEnabled ~= false), tostring(s.metaMapOnMinimap ~= false),
+        tostring(s.metaMapOnWorldMap ~= false), tostring(s.metaMapWindow), tostring(s.metaMapCategory)))
+    print(string.format("|cff33E633UGC MetaMap|r pos map=%s x=%s y=%s cells=%d",
+        tostring(mapID or "nil"), tostring(x or "nil"), tostring(y or "nil"), count))
 end
 
 function MetaMap:Init()
