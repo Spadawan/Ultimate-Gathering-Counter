@@ -279,7 +279,7 @@ end
 -------------------------------------------------------------------------------
 function Details:_SetActiveFilter(key)
     self._currentFilter = key
-    local CATS_ORDER = { "all", "herbs", "ore", "fish", "leather" }
+    local CATS_ORDER = { "global", "all", "herbs", "ore", "fish", "leather" }
     for _, k in ipairs(CATS_ORDER) do
         local btn = self._filterBtns[k]
         if btn then
@@ -473,14 +473,15 @@ function Details:Init()
     filterLbl:SetTextColor(0.5, 0.5, 0.5)
 
     local FILTER_DEFS = {
-        { key = "all",     label = "All",     color = nil,                    xOff = 48,  w = 40 },
-        { key = "herbs",   label = "Herbs",   color = UGC.CATEGORIES.herbs.color,   xOff = 92,  w = 50 },
-        { key = "ore",     label = "Ore",     color = UGC.CATEGORIES.ore.color,     xOff = 146, w = 40 },
-        { key = "fish",    label = "Fish",    color = UGC.CATEGORIES.fish.color,    xOff = 190, w = 40 },
-        { key = "leather", label = "Leather", color = UGC.CATEGORIES.leather.color, xOff = 234, w = 55 },
+        { key = "global",  label = "Global",  color = nil,                          xOff = 48,  w = 52 },
+        { key = "all",     label = "All",     color = nil,                          xOff = 104, w = 40 },
+        { key = "herbs",   label = "Herbs",   color = UGC.CATEGORIES.herbs.color,   xOff = 148, w = 50 },
+        { key = "ore",     label = "Ore",     color = UGC.CATEGORIES.ore.color,     xOff = 202, w = 40 },
+        { key = "fish",    label = "Fish",    color = UGC.CATEGORIES.fish.color,    xOff = 246, w = 40 },
+        { key = "leather", label = "Leather", color = UGC.CATEGORIES.leather.color, xOff = 290, w = 55 },
     }
     self._filterBtns   = {}
-    self._currentFilter = "all"
+    self._currentFilter = "global"
 
     for _, fd in ipairs(FILTER_DEFS) do
         local btn = MakeFilterBtn(filterRow, fd.label, fd.xOff, -2, fd.w, fd.color)
@@ -491,7 +492,7 @@ function Details:Init()
         end)
         self._filterBtns[fd.key] = btn
     end
-    self:_SetActiveFilter("all")
+    self:_SetActiveFilter("global")
 
     -- ── Column headers ────────────────────────────────────────────────
     local profPanel = CreateFrame("Frame", nil, f)
@@ -750,6 +751,7 @@ end
 function Details:_RefreshLeaderboard()
     local peers = UGC.DB:GetCommunityPeers() or {}
     local isJoined = UGC.Community and UGC.Community.IsJoined and UGC.Community:IsJoined()
+    local activeFilter = self._currentFilter or "global"
     local localName = (UGC.Community and UGC.Community._normalizePlayerName and UGC.Community:_normalizePlayerName(UGC.Community:_getPlayerName()))
         or (UGC.Community and UGC.Community:_getPlayerName())
         or UnitName("player")
@@ -759,7 +761,6 @@ function Details:_RefreshLeaderboard()
     for name, peer in pairs(peers) do
         local t = peer.totals or {}
         local levels = peer.levels or {}
-        local total = (t.herbs or 0) + (t.ore or 0) + (t.fish or 0) + (t.leather or 0)
         local levelSum = 0
         local titleParts = {}
         for _, cat in ipairs(PROF_ORDER) do
@@ -769,10 +770,18 @@ function Details:_RefreshLeaderboard()
             local c = UGC.CATEGORIES[cat]
             table.insert(titleParts, string.format("|cff%s%s|r:%s", c.hex, c.label:sub(1,1), title))
         end
+        local total = (t.herbs or 0) + (t.ore or 0) + (t.fish or 0) + (t.leather or 0)
+        local filteredTotal = total
+        if activeFilter == "global" then
+            filteredTotal = levelSum
+        elseif activeFilter ~= "all" then
+            filteredTotal = tonumber(t[activeFilter]) or 0
+        end
 
         table.insert(rows, {
             name = name,
-            total = total,
+            total = filteredTotal,
+            totalAll = total,
             levelTotal = levelSum,
             totals = t,
             levelSummary = string.format("L%d", levelSum),
@@ -845,6 +854,7 @@ function Details:_RefreshLeaderboard()
             rank = i,
             name = entry.name,
             total = entry.total,
+            totalAll = entry.totalAll,
             herbs = t.herbs or 0,
             ore = t.ore or 0,
             fish = t.fish or 0,
@@ -878,14 +888,26 @@ function Details:_RefreshLeaderboard()
 
     self.content:SetHeight(math.max(yOffset, 20))
 
-    if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Number of Gathers") end
+    if self._countHeader and self._countHeader._label then
+        if activeFilter == "global" then
+            self._countHeader._label:SetText("Global Score")
+        else
+            self._countHeader._label:SetText("Number of Gathers")
+        end
+    end
     if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Levels") end
     if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("Titles") end
 
     local rankText = playerRank and ("#" .. playerRank) or "N/A"
+    local filterLabel = "Global (Level Sum)"
+    if activeFilter == "all" then
+        filterLabel = "All"
+    elseif UGC.CATEGORIES and UGC.CATEGORIES[activeFilter] then
+        filterLabel = UGC.CATEGORIES[activeFilter].label
+    end
     self._summaryLine1:SetText(string.format(
-        "Channel |cff33E633UGC|r  |  Players: %d  |  Shared gathers: %d",
-        #rows, grandTotal))
+        "Channel |cff33E633UGC|r  |  Players: %d  |  Shared gathers (%s): %d",
+        #rows, filterLabel, grandTotal))
     if isJoined then
         self._summaryLine2:SetText(string.format(
             "Your rank: |cffffd700%s|r  |  Tip: ask more players to join the UGC channel.",
@@ -953,7 +975,11 @@ function Details:Refresh()
 
             local recentGain = UGC.Progression:GetRecentGain(cat)
             if recentGain then
-                row.gainText:SetText(string.format("+%d EXP", recentGain))
+                if (recentGain.bonus or 0) > 0 then
+                    row.gainText:SetText(string.format("+%d EXP |cff4da6ff(+%d exp)|r", recentGain.amount or 0, recentGain.bonus or 0))
+                else
+                    row.gainText:SetText(string.format("+%d EXP", recentGain.amount or 0))
+                end
             else
                 row.gainText:SetText("")
             end
@@ -964,7 +990,7 @@ function Details:Refresh()
     for _, row in ipairs(self.rows) do row:Hide() end
 
     local period    = self._currentTab    or "allTime"
-    local catFilter = (self._currentFilter ~= "all") and self._currentFilter or nil
+    local catFilter = ((self._currentFilter ~= "all") and (self._currentFilter ~= "global")) and self._currentFilter or nil
     if self._countHeader and self._countHeader._label then self._countHeader._label:SetText("Count") end
     if self._valueHeader and self._valueHeader._label then self._valueHeader._label:SetText("Value") end
     if self._pctHeader and self._pctHeader._label then self._pctHeader._label:SetText("% Total") end

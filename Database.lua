@@ -470,6 +470,12 @@ local function ensureCreatureState(state, category)
         }
         state.name = defaults[category] or "Gatherling"
     end
+    if type(state.totalBonusXP) ~= "number" or state.totalBonusXP < 0 then
+        state.totalBonusXP = 0
+    end
+    if type(state.bonusXPFraction) ~= "number" or state.bonusXPFraction < 0 then
+        state.bonusXPFraction = 0
+    end
     return state
 end
 
