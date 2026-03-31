@@ -170,8 +170,8 @@ function MetaMap:RecordGather(category)
     UGC.DB:UpsertCommunityHeatCell(ctx, cx, cy, category, 1, now, true)
     self._recentPings[#self._recentPings + 1] = {
         context = ctx,
-        x = (cx + 0.5) * CELL_SIZE,
-        y = (cy + 0.5) * CELL_SIZE,
+        x = x, -- exact local point (ephemeral only, not persisted/broadcast)
+        y = y,
         ts = now,
     }
     self:Refresh(true)
@@ -302,7 +302,7 @@ local function ensureDot(pool, parent)
         dot:SetParent(parent)
         return dot
     end
-    dot = parent:CreateTexture(nil, "OVERLAY")
+    dot = parent:CreateTexture(nil, "ARTWORK")
     dot:SetTexture("Interface\\Buttons\\WHITE8X8")
     return dot
 end
@@ -344,11 +344,22 @@ function MetaMap:_renderWorldMap(cells)
     end
     recycleDots(self._worldActiveDots or {}, self._worldDots)
     self._worldActiveDots = self._worldActiveDots or {}
+    local parentWidth = parent:GetWidth() or 0
+    local parentHeight = parent:GetHeight() or 0
+    if parentWidth <= 0 or parentHeight <= 0 then
+        if WorldMapFrame.ScrollContainer then
+            parentWidth = WorldMapFrame.ScrollContainer:GetWidth() or parentWidth
+            parentHeight = WorldMapFrame.ScrollContainer:GetHeight() or parentHeight
+        end
+    end
+    if parentWidth <= 0 or parentHeight <= 0 then
+        return
+    end
 
     for _, c in ipairs(cells) do
         local dot = ensureDot(self._worldDots, parent)
         dot:SetSize(14, 14)
-        dot:SetPoint("CENTER", parent, "TOPLEFT", c.x * parent:GetWidth(), -c.y * parent:GetHeight())
+        dot:SetPoint("CENTER", parent, "TOPLEFT", c.x * parentWidth, -c.y * parentHeight)
         paintDot(dot, c.r, c.g, c.b, c.a)
         dot:Show()
         self._worldActiveDots[#self._worldActiveDots + 1] = dot

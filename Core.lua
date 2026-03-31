@@ -18,6 +18,7 @@ eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 eventFrame:RegisterEvent("ZONE_CHANGED")
 eventFrame:RegisterEvent("MINIMAP_UPDATE_ZOOM")
+eventFrame:RegisterEvent("WORLD_MAP_UPDATE")
 
 -------------------------------------------------------------------------------
 -- Event dispatcher
@@ -84,7 +85,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             UGC.Community:OnAddonMessage(prefix, message, channel, sender)
         end
 
-    elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "MINIMAP_UPDATE_ZOOM" then
+    elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED"
+        or event == "MINIMAP_UPDATE_ZOOM" or event == "WORLD_MAP_UPDATE" then
         if UGC.MetaMap then
             UGC.MetaMap:Refresh(true)
         end
