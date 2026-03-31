@@ -179,6 +179,10 @@ function Creatures:Init()
     local expText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     expText:SetPoint("CENTER", expBg, "CENTER", 0, 0)
 
+    local bonusText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bonusText:SetPoint("TOP", expBg, "BOTTOM", 0, -8)
+    bonusText:SetTextColor(0.45, 0.75, 1.0)
+
     local popup = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     popup:SetPoint("CENTER", art, "CENTER", 0, 12)
     popup:SetDrawLayer("OVERLAY", 7)
@@ -249,6 +253,7 @@ function Creatures:Init()
     self._expFill = expFill
     self._expBg = expBg
     self._expText = expText
+    self._bonusText = bonusText
     self._popup = popup
     self._popupAnim = popupAnim
     self._feedBtn = feedBtn
@@ -676,6 +681,7 @@ function Creatures:Refresh()
         self._levelText:SetText("")
         self._expFill:SetWidth(1)
         self._expText:SetText("")
+        self._bonusText:SetText("")
         self._feedBtn:Disable()
         self._evolveBtn:Hide()
         return
@@ -695,6 +701,7 @@ function Creatures:Refresh()
     local w = self._expBg:GetWidth() or 260
     self._expFill:SetWidth(math.max(1, w * pct))
     self._expText:SetText(string.format("%d / %d EXP", cp.xp, cp.reqXP))
+    self._bonusText:SetText(string.format("XP bonus: +%.0f%%  •  Total generated: %d EXP", cp.bonusPercent or 0, cp.totalBonusXP or 0))
 
     local canEvolve = UGC.Progression:CanEvolveCreature(active)
     self._feedBtn:SetEnabled(cp.level < cp.maxLevel and not canEvolve)

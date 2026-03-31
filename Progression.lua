@@ -88,6 +88,7 @@ local TITLES = {
 
 local CREATURE_UNLOCK_LEVEL = 5
 local FEED_COST_XP = 100
+local CREATURE_XP_BONUS_PER_LEVEL = 0.01
 local CREATURE_DEFAULT_NAMES = {
     herbs = "Spriglet",
     ore = "Pebblin",
@@ -273,6 +274,8 @@ function Progression:GetCreatureProgress(category)
         reqXP = reqXP,
         maxLevelReached = st.maxLevelReached or st.level,
         name = st.name or CREATURE_DEFAULT_NAMES[category] or "Gatherling",
+        totalBonusXP = math.floor(st.totalBonusXP or 0),
+        bonusPercent = ((st.unlocked == true) and ((st.level or 0) * CREATURE_XP_BONUS_PER_LEVEL * 100) or 0),
         maxLevel = CREATURE_MAX_LEVEL,
     }
 end
@@ -473,7 +476,7 @@ function Progression:GrantProfessionXP(category, amount)
     end
 
     UGC.DB:SetProfessionProgress(category, state)
-    self._recentGain[category] = { amount = math.floor(amount), t = GetTime() }
+    self._recentGain[category] = { amount = math.floor(amount), bonus = 0, t = GetTime() }
 
     if state.level >= CREATURE_UNLOCK_LEVEL then
         local creature = UGC.DB:GetCreatureProgress(category)
@@ -495,7 +498,7 @@ function Progression:GetRecentGain(category)
     if (GetTime() - (g.t or 0)) > GAIN_POPUP_SECONDS then
         return nil
     end
-    return g.amount
+    return g
 end
 
 function Progression:_AnnounceCenter(message)
@@ -525,6 +528,19 @@ function Progression:AddGatherAction(category, itemID)
     local baseXPGain = self:GetGatherXPGain(itemID)
     local bonusXPGain = self:_GetChainBonusXP(category)
     local xpGain = baseXPGain + bonusXPGain
+
+    local petBonusGranted = 0
+    local creature = UGC.DB:GetCreatureProgress(category)
+    if creature and creature.unlocked and (creature.level or 0) > 0 then
+        local bonusMultiplier = (creature.level or 0) * CREATURE_XP_BONUS_PER_LEVEL
+        local remainder = creature.bonusXPFraction or 0
+        local exactBonus = (xpGain * bonusMultiplier) + remainder
+        petBonusGranted = math.floor(exactBonus)
+        creature.bonusXPFraction = exactBonus - petBonusGranted
+        creature.totalBonusXP = math.floor((creature.totalBonusXP or 0) + petBonusGranted)
+        UGC.DB:SetCreatureProgress(category, creature)
+    end
+    xpGain = xpGain + petBonusGranted
 
     state.totalHarvests = (state.totalHarvests or 0) + 1
     state.xp = (state.xp or 0) + xpGain
@@ -575,6 +591,9 @@ function Progression:AddGatherAction(category, itemID)
     if bonusXPGain > 0 then
         gainLabel = string.format("+%d (%d bonus chain)", xpGain, bonusXPGain)
     end
+    if petBonusGranted > 0 then
+        gainLabel = string.format("%s |cff4da6ff(+%d exp)|r", gainLabel, petBonusGranted)
+    end
 
     if not self:_IsProfessionOnlyMode() then
         print(string.format("|cff33E633UGC|r |cffffffff%s %s EXP|r (%d/%d)",
@@ -595,7 +614,7 @@ function Progression:AddGatherAction(category, itemID)
         end
     end
 
-    self._recentGain[category] = { amount = xpGain, t = GetTime() }
+    self._recentGain[category] = { amount = xpGain, bonus = petBonusGranted, t = GetTime() }
 
     C_Timer.After(GAIN_POPUP_SECONDS + 0.1, function()
         if UGC.Overlay and UGC.Overlay.frame and UGC.Overlay.frame:IsShown() then

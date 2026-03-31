@@ -666,7 +666,11 @@ function Overlay:Refresh()
 
                 local recentGain = UGC.Progression:GetRecentGain(currentCat)
                 if recentGain then
-                    hdr.gainText:SetText(string.format("+%d EXP", recentGain))
+                    if (recentGain.bonus or 0) > 0 then
+                        hdr.gainText:SetText(string.format("+%d EXP |cff4da6ff(+%d exp)|r", recentGain.amount or 0, recentGain.bonus or 0))
+                    else
+                        hdr.gainText:SetText(string.format("+%d EXP", recentGain.amount or 0))
+                    end
                 else
                     hdr.gainText:SetText("")
                 end
