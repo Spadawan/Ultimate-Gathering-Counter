@@ -80,9 +80,9 @@ local NON_GATHER_PREFIXES = {
 }
 
 local function _isNonGatherReceiveMessage(msg)
-    if type(msg) ~= "string" or msg == "" then return false end
+    if type(msg) ~= "string" or #msg == 0 then return false end
     for _, prefix in ipairs(NON_GATHER_PREFIXES) do
-        if prefix and prefix ~= "" and msg:sub(1, #prefix) == prefix then
+        if prefix and #prefix > 0 and string.find(msg, prefix, 1, true) == 1 then
             return true
         end
     end
