@@ -31,6 +31,7 @@ local EXCLUDED_NAME_PATTERNS = {
     "%f[%a]patron%f[%A]",
     "%f[%a]pattern%f[%A]",
     "%f[%a]patr[oó]n%f[%A]",
+    "%f[%a]padr[aã]o%f[%A]",  -- PT-BR (Padrão)
     "%f[%a]mod[eè]le%f[%A]",
     "%f[%a]muster%f[%A]",
     "%f[%a]sch[eé]ma%f[%A]",
