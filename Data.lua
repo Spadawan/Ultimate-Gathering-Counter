@@ -55,6 +55,15 @@ UGC.EXCLUDED_ITEM_IDS = {
     [18232]  = true, -- Field Repair Bot 74A
     [34113]  = true, -- Field Repair Bot 110G
     [221957] = true, -- Repair Bot MK-II (The War Within)
+    -- Mythic Keystones (utility item, not a gatherable)
+    [138019] = true, -- Mythic Keystone (Legion)
+    [180653] = true, -- Mythic Keystone (Shadowlands)
+    -- Junk meat / non-cooking drops
+    [172052] = true, -- Aethereal Meat
+    [172055] = true, -- Phantasmal Haunch
+    [197741] = true, -- Maybe Meat
+    -- Miscellaneous noise items
+    [206046] = true, -- Void-Touched Curio
 }
 
 local function addItems(category, tbl)
