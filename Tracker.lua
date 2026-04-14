@@ -35,6 +35,10 @@ local EXCLUDED_NAME_PATTERNS = {
     "%f[%a]muster%f[%A]",
     "%f[%a]sch[eé]ma%f[%A]",
     "%f[%a]schema%f[%A]",
+    -- Schematics (engineering recipes).
+    "%f[%a]schematic%f[%A]",
+    -- Prototype items (pre-release/test items that should not be tracked).
+    "%f[%a]prototype%f[%A]",
     -- Crest/Ecu-like currencies that should never be tracked.
     "%f[%a]crest%f[%A]",
     "%f[%a][eéÉ]cu%f[%A]",
