@@ -49,6 +49,21 @@ UGC.EXCLUDED_ITEM_IDS = {
     [204464] = true, -- Essence d'ombreflamme / Shadowflame Essence
     [210814] = true, -- Acuité artisanale / Artisan's Acuity
     [253802] = true, -- Acte de mécénat / Deed of Patronage
+    -- Swapblaster (utility toy, not a gatherable)
+    [111820] = true, -- Swapblaster
+    -- Repair bots (engineering utility items)
+    [18232]  = true, -- Field Repair Bot 74A
+    [34113]  = true, -- Field Repair Bot 110G
+    [221957] = true, -- Repair Bot MK-II (The War Within)
+    -- Mythic Keystones (utility item, not a gatherable)
+    [138019] = true, -- Mythic Keystone (Legion)
+    [180653] = true, -- Mythic Keystone (Shadowlands)
+    -- Junk meat / non-cooking drops
+    [172052] = true, -- Aethereal Meat
+    [172055] = true, -- Phantasmal Haunch
+    [197741] = true, -- Maybe Meat
+    -- Miscellaneous noise items
+    [206046] = true, -- Void-Touched Curio
 }
 
 local function addItems(category, tbl)

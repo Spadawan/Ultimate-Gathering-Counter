@@ -31,10 +31,17 @@ local EXCLUDED_NAME_PATTERNS = {
     "%f[%a]patron%f[%A]",
     "%f[%a]pattern%f[%A]",
     "%f[%a]patr[oó]n%f[%A]",
+    "%f[%a]padr[aã]o%f[%A]",  -- PT-BR (Padrão)
     "%f[%a]mod[eè]le%f[%A]",
     "%f[%a]muster%f[%A]",
     "%f[%a]sch[eé]ma%f[%A]",
     "%f[%a]schema%f[%A]",
+    -- Schematics (engineering recipes) in multiple locales.
+    "%f[%a]schematic%f[%A]",  -- EN
+    "%f[%a]esquema%f[%A]",    -- ES
+    "%f[%a]bauplan%f[%A]",    -- DE
+    -- Prototype items in multiple locales.
+    "%f[%a]prototyp[eo]%f[%A]", -- EN/FR (Prototype), DE (Prototyp), ES/IT (Prototipo)
     -- Crest/Ecu-like currencies that should never be tracked.
     "%f[%a]crest%f[%A]",
     "%f[%a][eéÉ]cu%f[%A]",
