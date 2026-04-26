@@ -64,6 +64,22 @@ UGC.EXCLUDED_ITEM_IDS = {
     [197741] = true, -- Maybe Meat
     -- Miscellaneous noise items
     [206046] = true, -- Void-Touched Curio
+    -- Engineering/gizmo noise items (TWW)
+    [229004] = true,
+    [242643] = true,
+    [242644] = true,
+    [242645] = true,
+    [242646] = true,
+    [246447] = true,
+    [246450] = true,
+    [247719] = true,
+    [247724] = true,
+    [247725] = true,
+    [247726] = true,
+    [247788] = true,
+    [251487] = true,
+    [260630] = true,
+    [265803] = true,
 }
 
 local function addItems(category, tbl)
