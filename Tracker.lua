@@ -228,17 +228,34 @@ function Tracker:_isExcludedLeatherEquipment(itemID, category)
     return false
 end
 
+local EXCLUDED_ICON_PATTERNS = { "gizmo", "engineering" }
+
+local function _iconMatchesExcludedPattern(icon)
+    if type(icon) ~= "string" or icon == "" then
+        return false
+    end
+    local lower = string.lower(icon)
+    for _, pat in ipairs(EXCLUDED_ICON_PATTERNS) do
+        if lower:find(pat, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
 function Tracker:_isExcludedItem(itemID, itemName)
     if UGC.EXCLUDED_ITEM_IDS and UGC.EXCLUDED_ITEM_IDS[itemID] then
         return true
     end
 
     local name = itemName
-    if not name then
-        local cached = UGC.DB and UGC.DB.GetCachedItem and UGC.DB:GetCachedItem(itemID)
-        if cached then
-            name = cached.name
-        end
+    local cached = UGC.DB and UGC.DB.GetCachedItem and UGC.DB:GetCachedItem(itemID)
+    if not name and cached then
+        name = cached.name
+    end
+
+    if cached and _iconMatchesExcludedPattern(cached.icon) then
+        return true
     end
 
     return _nameMatchesExcludedPattern(name)
