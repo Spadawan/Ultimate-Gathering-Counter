@@ -57,21 +57,6 @@ local function FormatCoin(copper)
 end
 
 -------------------------------------------------------------------------------
--- Auctionator price helper (returns copper or nil)
--------------------------------------------------------------------------------
-local function GetAuctionPrice(itemID)
-    if not UGC.Compat:IsAddOnLoaded("Auctionator") then return nil end
-    if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
-        return nil
-    end
-    local ok, price = pcall(
-        Auctionator.API.v1.GetAuctionPriceByItemID,
-        UGC.ADDON_NAME, itemID
-    )
-    return ok and price or nil
-end
-
--------------------------------------------------------------------------------
 -- Row factory
 -------------------------------------------------------------------------------
 local function CreateItemRow(parent)
@@ -764,7 +749,7 @@ function Overlay:Refresh()
 
             -- Value (price × bag count)
             if settings.showValues then
-                local unitPrice = GetAuctionPrice(item.itemID)
+                local unitPrice = UGC.Pricing:GetAuctionPrice(item.itemID)
                 if unitPrice and unitPrice > 0 and item.bagCount > 0 then
                     local itemCopper = unitPrice * item.bagCount
                     totalCopper = totalCopper + itemCopper

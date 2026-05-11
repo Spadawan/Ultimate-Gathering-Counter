@@ -214,7 +214,7 @@ function Config:Init()
         end)
 
     -- Show auction values
-    _, yOff = MakeCheckbox(content, "Show Auctionator values", yOff,
+    _, yOff = MakeCheckbox(content, "Show Auctionator/TSM values", yOff,
         function() return s.showValues end,
         function(v)
             s.showValues = v
@@ -376,18 +376,14 @@ function Config:Init()
     resetHint:SetTextColor(0.45, 0.45, 0.45)
     yOff = yOff - 52
 
-    -- Auctionator status note
+    -- Price provider status note
     local aucNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     aucNote:SetPoint("TOPLEFT", content, "TOPLEFT", 14, yOff)
     aucNote:SetWidth(WIN_WIDTH - 28)
     aucNote:SetJustifyH("LEFT")
 
     local function UpdateAucNote()
-        if UGC.Compat:IsAddOnLoaded("Auctionator") then
-            aucNote:SetText("|cff33E633Auctionator detected.|r Price data is available.")
-        else
-            aucNote:SetText("|cffff8800Auctionator not loaded.|r Values will show as \"?\".")
-        end
+        aucNote:SetText(UGC.Pricing:GetProviderStatusText())
     end
     UpdateAucNote()
 

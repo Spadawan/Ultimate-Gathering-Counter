@@ -71,6 +71,8 @@ UGC.EXCLUDED_ITEM_IDS = {
     [242645] = true,
     [242646] = true,
     [246447] = true,
+    [246448] = true, -- Registre d'artisanat / Crafting Register
+    [246449] = true, -- Crafting register
     [246450] = true,
     [247719] = true,
     [247724] = true,
@@ -80,6 +82,14 @@ UGC.EXCLUDED_ITEM_IDS = {
     [251487] = true,
     [260630] = true,
     [265803] = true,
+    -- Profession/order reagents and weapon barding noise items
+    [219901] = true, -- Barde d'arme tempétueuse
+    [219902] = true, -- Barde d'arme tempétueuse
+    [219903] = true, -- Barde d'arme tempétueuse
+    [238202] = true, -- Alliage de la tombée du jour
+    [238203] = true, -- Alliage de la tombée du jour
+    [244637] = true, -- Barde d'arme de Lune-d'Argent
+    [244638] = true, -- Barde d'arme de Lune-d'Argent
 }
 
 local function addItems(category, tbl)
