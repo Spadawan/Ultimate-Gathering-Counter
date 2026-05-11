@@ -92,19 +92,6 @@ local function FormatCoin(copper)
     end
 end
 
-local function GetAuctionPrice(itemID)
-    if not UGC.Compat:IsAddOnLoaded("Auctionator") then return nil end
-    if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
-        return nil
-    end
-    local ok, price = pcall(
-        Auctionator.API.v1.GetAuctionPriceByItemID,
-        UGC.ADDON_NAME, itemID
-    )
-    return ok and price or nil
-end
-
-
 local function SetDefaultIcon(texture)
     texture:SetTexture(ICON_UNKNOWN)
     texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
@@ -1028,7 +1015,7 @@ function Details:Refresh()
                 local name    = (cached and cached.name) or itemData.hint or ("Item " .. itemID)
                 local icon    = cached and cached.icon
                 local quality = cached and cached.quality
-                local price   = GetAuctionPrice(itemID)
+                local price   = UGC.Pricing:GetAuctionPrice(itemID)
                 local copper  = price and (price * count) or 0
 
                 totalCount  = totalCount + count

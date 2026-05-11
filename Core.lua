@@ -132,11 +132,7 @@ SlashCmdList["UGC"] = function(msg)
         print("|cffffd700/ugc leaderboard|r    Open community leaderboard tab")
         print("|cffffd700/ugc reset|r          Reset current session counters")
         print("|cffffd700/ugc help|r           Show this help")
-        if UGC.Compat:IsAddOnLoaded("Auctionator") then
-            print("|cff33E633Auctionator|r detected — price data available.")
-        else
-            print("|cffff8800Auctionator|r not loaded — values will show as \"?\".")
-        end
+        print(UGC.Pricing:GetProviderStatusText())
 
     else
         print("|cff33E633UGC:|r Unknown command: \"" .. cmd

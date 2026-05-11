@@ -1,13 +1,14 @@
 ## Interface: 20505
 ## Title: |cff33E633Ultimate Gathering Counter|r
-## Notes: Tracks gathered herbs, ores, fish, and leather with per-hour rates and Auctionator price integration.
+## Notes: Tracks gathered herbs, ores, fish, and leather with per-hour rates and Auctionator/TSM price integration.
 ## Author: UGC
 ## Version: 1.1.0
 ## SavedVariables: UGC_DB
-## OptionalDeps: Auctionator
+## OptionalDeps: Auctionator, TradeSkillMaster
 
 Data.lua
 Compat.lua
+Pricing.lua
 Database.lua
 Tracker.lua
 Progression.lua
