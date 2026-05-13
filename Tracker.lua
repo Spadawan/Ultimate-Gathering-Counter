@@ -86,6 +86,19 @@ local NON_GATHER_PREFIXES = {
     _extractLootPrefix(_G.LOOT_ITEM_PUSHED_SELF_MULTIPLE),
 }
 
+local function _isInRaidGroup()
+    if IsInRaid then
+        return IsInRaid()
+    end
+    if UnitInRaid and UnitInRaid("player") then
+        return true
+    end
+    if GetNumRaidMembers then
+        return (GetNumRaidMembers() or 0) > 0
+    end
+    return false
+end
+
 local function _isNonGatherReceiveMessage(msg)
     if type(msg) ~= "string" or #msg == 0 then return false end
     for _, prefix in ipairs(NON_GATHER_PREFIXES) do
@@ -415,6 +428,23 @@ function Tracker:ScanBags()
     local now = GetTime()
     local newSnapshot = self:_captureSnapshot()
 
+    -- Raid loot chat can contain protected/secret payloads on some clients.
+    -- Keep the bag baseline current while grouped in a raid, but do not record
+    -- gains from raid-related bag changes. This prevents catch-up counting after
+    -- leaving the raid and avoids touching protected loot messages.
+    if _isInRaidGroup() then
+        wipe(UGC.Session.pendingLoot)
+        for itemID in pairs(UGC.ITEM_DB) do
+            if not UGC.Session.items[itemID] then
+                UGC.Session.items[itemID] = { gained = 0, bagCount = 0 }
+            end
+            UGC.Session.items[itemID].bagCount = newSnapshot[itemID] or 0
+        end
+        UGC.Session.bagSnapshot = newSnapshot
+        _firstScanDone = true
+        return
+    end
+
     -- First scan after login: re-seed snapshot without recording gains.
     -- _buildSnapshot() may have missed items whose GetItemInfo() wasn't ready yet;
     -- this second pass catches them before any delta logic runs.
@@ -654,6 +684,7 @@ end
 -- All counting is done by bag diff to avoid double-counting.
 -------------------------------------------------------------------------------
 function Tracker:ParseLootMessage(msg)
+    if _isInRaidGroup() then return end
     if not msg then return end
     if _isNonGatherReceiveMessage(msg) then
         return
