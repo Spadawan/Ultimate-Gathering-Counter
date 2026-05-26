@@ -1,4 +1,4 @@
-## Interface: 120005
+## Interface: 11508
 ## Title: |cff33E633Ultimate Gathering Counter|r
 ## Notes: Tracks gathered herbs, ores, fish, and leather with per-hour rates and Auctionator/TSM price integration.
 ## Author: UGC

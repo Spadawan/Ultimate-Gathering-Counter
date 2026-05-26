@@ -373,6 +373,7 @@ addItems("fish", {
 -------------------------------------------------------------------------------
 addItems("leather", {
     -- Classic
+    [2934]   = "Ruined Leather Scraps",
     [783]    = "Light Hide",
     [15417]  = "Devilsaur Leather",
     [15419]  = "Warbear Leather",
