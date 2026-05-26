@@ -506,7 +506,7 @@ function Progression:_AnnounceCenter(message)
         RaidNotice_AddMessage(RaidWarningFrame, message, ChatTypeInfo["SYSTEM"])
     end
     if UIErrorsFrame then
-        UIErrorsFrame:AddMessage(message, 0.2, 1.0, 0.2, 1.5)
+        UIErrorsFrame:AddMessage(message, 0.2, 1.0, 0.2)
     end
 end
 
