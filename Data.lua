@@ -65,6 +65,20 @@ UGC.EXCLUDED_ITEM_IDS = {
     [172052] = true, -- Aethereal Meat
     [172055] = true, -- Phantasmal Haunch
     [197741] = true, -- Maybe Meat
+    [197744] = true, -- Bruffalon Slice / Tranche de bufflacien
+    -- Dragonflight elemental reagents tracked as noisy side drops
+    [190315] = true, -- Rousing Earth / Terre agitée
+    [190316] = true, -- Awakened Earth / Terre éveillée
+    [190320] = true, -- Rousing Fire / Feu agité
+    [190321] = true, -- Awakened Fire / Feu éveillé
+    [190322] = true, -- Rousing Order / Ordre agité
+    [190324] = true, -- Awakened Order / Ordre éveillé
+    [190326] = true, -- Rousing Air / Air agité
+    [190327] = true, -- Awakened Air / Air éveillé
+    [190328] = true, -- Rousing Frost / Givre agité
+    [190329] = true, -- Awakened Frost / Givre éveillé
+    [190330] = true, -- Rousing Decay / Décomposition agitée
+    [190331] = true, -- Awakened Decay / Décomposition éveillée
     -- Miscellaneous noise items
     [206046] = true, -- Void-Touched Curio
     -- Engineering/gizmo noise items (TWW)

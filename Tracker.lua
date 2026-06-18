@@ -46,6 +46,11 @@ local EXCLUDED_NAME_PATTERNS = {
     "%f[%a]crest%f[%A]",
     "%f[%a][eéÉ]cu%f[%A]",
     "%f[%a]escudo%f[%A]",
+    -- Dragonflight elemental reagents in common locales (Rousing/Awakened, Agité/Éveillé).
+    "%f[%a]rousing%f[%A]",
+    "%f[%a]awakened%f[%A]",
+    "%f[%a]agit[eé]%f[%A]",
+    "%f[%a][eéÉ]veill[eé]%f[%A]",
 }
 
 local function _nameMatchesExcludedPattern(name)
